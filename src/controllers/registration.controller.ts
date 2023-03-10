@@ -548,7 +548,7 @@ export class RegistrationController {
     try {
       glensProfileResponse = await this.axiosPost(
         glensProfile,
-        this.glensProfileUrl,
+        this.glensProfileUrl, serviceUserToken
       );
       this.log('OK');
     } catch (error) {
@@ -571,6 +571,7 @@ export class RegistrationController {
       fhirPatientResponse = await this.axiosPost(
         fhirPatientProfile,
         this.fhirPatientUrl,
+        serviceUserToken
       );
       this.log('OK');
     } catch (error) {
