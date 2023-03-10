@@ -41,7 +41,7 @@ export class RegistrationController {
   // For users
   realm = process.env.KEYCLOAK_REALM ?? 'GravitateHealth';
   serviceUserUsername = process.env.SERVICE_USERNAME ?? 'user-test@gh.com';
-  serviceUserPassword = process.env.SERVICE_PASSWORD ?? 'Alumni-diabetic-attentive1';
+  serviceUserPassword = process.env.SERVICE_PASSWORD ?? '';
 
   keycloakUsersEndpoint =
     this.keycloakBaseUrl +
@@ -145,7 +145,7 @@ export class RegistrationController {
     let authHeader = headers.authorization || '';
     const jwtToken = authHeader.split(' ')[1];
     return this.parseJwt(jwtToken);
-  }
+  };
 
   checkJWTisValid = async (token: any) => {
     let url =
@@ -186,10 +186,15 @@ export class RegistrationController {
     this.log(error);
     if (error.response) {
       // The request was made and the server responded with a status code outside of 2xx
-      let errorData = error.response.data.errorMessage;
-      this.log(errorData);
-      this.log(error.respose);
-      this.log(error.response.status);
+      let errorMessage = error.response.data.errorMessage;
+      this.log('Error Message: ' + errorMessage);
+      this.log('Error response data:');
+      console.log(error.response.data.error);
+      try {
+        this.log(' Error Details: ');
+        console.log(error.response.data.error.details);
+      } catch (error) {}
+      this.log('Error Status: ' + error.response.status);
       let message;
       switch (error.response.status) {
         case 409:
@@ -202,7 +207,7 @@ export class RegistrationController {
           break;
       }
       response.message = message;
-      response.reason = errorData;
+      response.reason = errorMessage;
       this.response.status(error.response.status).send(response);
     } else {
       this.log(error);
@@ -245,6 +250,22 @@ export class RegistrationController {
       url: url,
       timeout: 30 * 1000,
       headers: headers,
+    });
+  };
+
+  axiosPatch = async (data: any, url: any, token?: any) => {
+    let headers = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = 'Bearer ' + token;
+    }
+    return await axios({
+      method: 'patch',
+      url: url,
+      timeout: 30 * 1000,
+      headers: headers,
+      data: data,
     });
   };
 
@@ -328,7 +349,7 @@ export class RegistrationController {
     ///////////////////////////
     let parsedToken, requestedUserId;
     try {
-      let parsedToken = this.getParsedJwtFromHeaders(this.req.headers)
+      let parsedToken = this.getParsedJwtFromHeaders(this.req.headers);
       requestedUserId = parsedToken['sub']; // "SUB" field of the JWT token is the userid for which the token is granted
       if (!requestedUserId) throw new Error('No token sent, or it is invalid');
     } catch (error) {
@@ -454,13 +475,13 @@ export class RegistrationController {
       this.response.status(400).send(this.generateErrorRespose("Error creating user", "Provide valid body in request"))
       return this.response
     } */
-    let profile
+    let profile;
     try {
       profile = JSON.parse(rawBody);
     } catch (error) {
       this.response.status(400).send({
-        message: "Provide valid body in the request."
-      })
+        message: 'Provide valid body in the request.',
+      });
     }
 
     let keycloakBody = this.createKeycloakProfile(profile);
@@ -583,13 +604,13 @@ export class RegistrationController {
     this.log('\n\n------------------[PATCH]-------------------------');
     this.log(`[PATCH] /user/${id}`);
 
-    
+    let response = {};
     ///////////////////////////
     // Get userID from token //
     ///////////////////////////
     let parsedToken, requestedUserId;
     try {
-      let parsedToken = this.getParsedJwtFromHeaders(this.req.headers)
+      let parsedToken = this.getParsedJwtFromHeaders(this.req.headers);
       requestedUserId = parsedToken['sub']; // "SUB" field of the JWT token is the userid for which the token is granted
       if (!requestedUserId) throw new Error('No token sent, or it is invalid');
     } catch (error) {
@@ -602,19 +623,19 @@ export class RegistrationController {
 
     if (requestedUserId != id) {
       this.response.status(401).send({
-        message: "You don't have permissions to patch this user."
-      })
+        message: "You don't have permissions to patch this user.",
+      });
     }
 
     // Sanitize input
     const rawBody = body.toString('utf8');
-    let profile
+    let profile;
     try {
       profile = JSON.parse(rawBody);
     } catch (error) {
       this.response.status(400).send({
-        message: "Provide valid body in the request."
-      })
+        message: 'Provide valid body in the request.',
+      });
     }
     if (requestedUserId != id) {
       this.response.status(401).send({
@@ -624,68 +645,41 @@ export class RegistrationController {
       return this.response;
     }
 
-    let pandevitaToken: any;
+    ///////////////
+    // Get token //
+    ///////////////
+    let serviceUserToken: any;
     try {
-      pandevitaToken = await this.get_token(this.realm, this.realmData);
+      serviceUserToken = await this.get_token(this.realm, this.realmData);
+      if (!serviceUserToken) throw new Error('Error contacting keycloak');
     } catch (error) {
-      this.log('Error getting token from KC');
+      console.log('Error getting tokens');
       this.log(error);
+      this.response
+        .status(500)
+        .send(this.generateErrorResponse('Error creating user.', error));
       return this.response;
     }
 
-    //PUT the user
+    //////////////////////////
+    // PATCH G-Lens Profile //
+    //////////////////////////
 
-    let userResponse;
+    let glensProfileResponse;
+    this.log('Patching g-lens-profile user...');
+    let url = this.glensProfileUrl + '/' + id;
     try {
-      userResponse = await axios({
-        method: 'put',
-        url:
-          this.keycloakBaseUrl +
-          '/auth/admin/realms/' +
-          this.realm +
-          '/' +
-          this.usersEndpoint +
-          '/' +
-          id,
-        headers: {
-          Authorization: 'Bearer ' + pandevitaToken,
-          'Content-Type': 'application/json',
-        },
-        data: profile,
-      });
+      glensProfileResponse = await this.axiosPatch(profile, url);
+      this.log('Patch glens profile OK');
     } catch (error) {
-      this.log('Error editing user');
-      this.log(error);
-      this.response.status(400).send({
-        created: false,
-        reason:
-          'Error editing user. Please, check the body is correct or that email/username does not exist.',
-      });
-
-      return this.response;
+      this.log('error patching g-lens-profile');
+      this.processAxiosError(error, response);
+      return;
     }
-
-    // If username or email is already taken:
-    if (userResponse.status !== 204) {
-      this.response.status(userResponse.status).send({
-        created: false,
-        status: userResponse.status,
-      });
-    } else {
-      // If succesful
-      const user_id_data = {
-        name: profile['username'],
-        email: profile['email'],
-      };
-      this.response.status(204).send({
-        success: true,
-        username: user_id_data.name,
-        mail: user_id_data.email,
-      });
-    }
+    this.response.status(200).send(profile);
     return this.response;
   }
-
+  /* 
   @del('/user/{id}')
   @response(204, {
     description: 'Player DELETE success',
@@ -727,5 +721,5 @@ export class RegistrationController {
 
       return this.response;
     }
-  }
+  } */
 }

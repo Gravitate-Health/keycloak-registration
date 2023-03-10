@@ -24,9 +24,9 @@ spec:
   http:
     - match:
         - uri:
-            prefix: /users/api/user/
+            prefix: /users/api/user
         - uri:
-            exact: /users/api/user
+            exact: /users/api/user/
       rewrite:
         uri: "/user"
       route:
