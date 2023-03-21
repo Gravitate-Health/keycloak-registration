@@ -22,7 +22,9 @@ spec:
   gateways:
     - gh-gateway
   http:
-    - match:
+    - retries:
+        attempts: 0
+      match:
         - uri:
             prefix: /users/api/user
         - uri:

@@ -3,8 +3,8 @@ kind: ConfigMap
 metadata:
   name: keycloak-registration-config-map
 data:
-  KEYCLOAK_BASE_PATH: https://fosps.gravitatehealth.eu
-  GLENS_PROFILE_BASE_PATH: https://fosps.gravitatehealth.eu/profiles
-  PATIENT_PATH: https://fosps.gravitatehealth.eu/fhir/Patient
+  KEYCLOAK_BASE_PATH: "https://fosps.gravitatehealth.eu"
+  GLENS_PROFILE_BASE_PATH: "https://fosps.gravitatehealth.eu/profiles"
+  PATIENT_PATH: "https://fosps.gravitatehealth.eu/ips/api/fhir/Patient"
 
-  KEYCLOAK_REALM: GravitateHealth
+  KEYCLOAK_REALM: "GravitateHealth"

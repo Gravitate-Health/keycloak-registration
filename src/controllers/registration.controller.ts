@@ -52,7 +52,7 @@ export class RegistrationController {
 
   // Realm data
   realmData = qs.stringify({
-    client_id: 'admin-cli',
+    client_id: 'GravitateHealth',
     grant_type: 'password',
     username: this.serviceUserUsername,
     password: this.serviceUserPassword,
@@ -63,13 +63,13 @@ export class RegistrationController {
   };
 
   get_token = async (realm = this.realm, realmData = this.realmData) => {
-    this.log('Getting token...');
     let tokenResponse: any;
     let url =
       this.keycloakBaseUrl +
       '/auth/realms/' +
       realm +
       '/protocol/openid-connect/token';
+    this.log('Getting token... ' + url);
     try {
       tokenResponse = await axios({
         method: 'post',
@@ -92,6 +92,27 @@ export class RegistrationController {
       this.log(JSON.stringify(tokenResponse));
     }
     return tokenResponse.data.access_token;
+  };
+
+  sendVerificationEmail = async (token: any, userId: any) => {
+    const keycloakVerifyEmail = await axios({
+      method: 'put',
+      url:
+        this.keycloakBaseUrl +
+        '/auth/admin/realms/' +
+        this.realm +
+        '/' +
+        this.usersEndpoint +
+        '/' +
+        userId +
+        '/execute-actions-email',
+      data: ['VERIFY_EMAIL'],
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+    });
+    this.log('Verification email sent to ' + userId);
   };
 
   /*   // Finds user by username or email
@@ -536,6 +557,12 @@ export class RegistrationController {
     const keycloakUserId = splitString[splitString.length - 1];
     this.log('[POST] keycloak_user_id: ' + keycloakUserId);
 
+    /////////////////////////////
+    // Send verification email //
+    /////////////////////////////
+
+    this.sendVerificationEmail(serviceUserToken, keycloakUserId);
+
     ////////////////////
     // G-Lens Profile //
     ////////////////////
@@ -548,7 +575,8 @@ export class RegistrationController {
     try {
       glensProfileResponse = await this.axiosPost(
         glensProfile,
-        this.glensProfileUrl, serviceUserToken
+        this.glensProfileUrl,
+        serviceUserToken,
       );
       this.log('OK');
     } catch (error) {
@@ -571,7 +599,7 @@ export class RegistrationController {
       fhirPatientResponse = await this.axiosPost(
         fhirPatientProfile,
         this.fhirPatientUrl,
-        serviceUserToken
+        serviceUserToken,
       );
       this.log('OK');
     } catch (error) {
