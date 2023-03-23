@@ -1,5 +1,5 @@
-import AxiosController from './axios.controller';
-import Logger from './logger.controller';
+import AxiosController from '../services/axios.provider';
+import Logger from '../services/logger.provider';
 
 export class FhirController {
   axiosController = new AxiosController();
@@ -8,7 +8,7 @@ export class FhirController {
     process.env.PATIENT_PATH ??
     'https://fosps.gravitatehealth.eu/ips/api/fhir/Patient';
 
-  buildFhirPatient = (profile: any, keycloakUserId: string) => {
+  buildFhirPatient = (keycloakUserId: string) => {
     return {
       resourceType: 'Patient',
       identifier: [
@@ -21,11 +21,8 @@ export class FhirController {
       name: [
         {
           use: 'usual',
-          family: profile.lastName,
-          given: [profile.firstName],
         },
       ],
-      gender: profile.sex,
     };
   };
 

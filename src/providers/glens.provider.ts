@@ -1,5 +1,5 @@
-import AxiosController from './axios.controller';
-import Logger from './logger.controller';
+import AxiosController from '../services/axios.provider';
+import Logger from '../services/logger.provider';
 
 export class GlensController {
   axiosController = new AxiosController();
@@ -8,25 +8,32 @@ export class GlensController {
     process.env.GLENS_PROFILE_BASE_PATH ??
     'https://fosps.gravitatehealth.eu/profiles';
 
-  createGlensProfileBody = (profile: any, keycloakUserId: any) => {
-    let glensProfile = Object.assign({}, profile);
-    glensProfile.id = keycloakUserId;
-    delete glensProfile.password;
-    delete glensProfile.firstName;
-    delete glensProfile.lastName;
-    delete glensProfile.email;
-    return glensProfile;
+  createGlensProfileBody = (keycloakUserId: string) => {
+    return {
+      id: keycloakUserId,
+    };
   };
 
   getGlensProfile = async (id: string, token: string) => {
     let glensProfileUrl = this.glensProfileUrl + '/' + id;
-    return await this.axiosController.axiosGet({
-      url: glensProfileUrl,
-      token: token
-    });
+    let response;
+    try {
+      response = await this.axiosController.axiosGet({
+        url: glensProfileUrl,
+        token: token,
+      });
+    } catch (error) {
+      Logger.log('[Get G-Lens user] ERROR Getting G-Lens Profile: ' + id);
+      return;
+    }
+    
+    if (response && response.status === 200) {
+      Logger.log(`[Get G-Lens user] G-Lens with id: ${id}`);
+      return response.data;
+    }
   };
 
-  createGlensProfile = async (glensProfile: string, token: string) => {
+  createGlensProfile = async (glensProfile: object, token: string) => {
     Logger.log(
       `[Create G-Lens Profile] Creating g-lens profile: ${JSON.stringify(
         glensProfile,
@@ -41,7 +48,11 @@ export class GlensController {
     return glensProfileResponse;
   };
 
-  patchGlensProfile = async (glensProfile: string, id: string, token: string) => {
+  patchGlensProfile = async (
+    glensProfile: string,
+    id: string,
+    token: string,
+  ) => {
     Logger.log(
       `[Patch G-Lens Profile] Patching g-lens profile: ${JSON.stringify(
         glensProfile,
@@ -58,7 +69,7 @@ export class GlensController {
   };
 
   deleteGlensProfile = async (profileId: String) => {
-    Logger.log('[Delete Keycloak User] Deleting');
+    Logger.log(`[Delete G-Lens User] Deleting user with id ${profileId}`);
     let response;
     let url = this.glensProfileUrl + '/' + profileId;
     try {

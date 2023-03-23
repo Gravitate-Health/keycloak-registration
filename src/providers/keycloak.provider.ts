@@ -1,6 +1,6 @@
 import axios from 'axios';
-import AxiosController from './axios.controller';
-import Logger from './logger.controller';
+import AxiosController from '../services/axios.provider';
+import Logger from '../services/logger.provider';
 import qs from 'qs';
 
 export class KeycloakController {
@@ -37,10 +37,12 @@ export class KeycloakController {
     return JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
   };
 
-  getUserIdFromToken = (token: string) => {};
+  getUserIdFromParsedToken = (parsedToken: object) => {
+    return parsedToken['sub']
+  };
 
   getParsedJwtFromHeaders = (headers: any) => {
-    let authHeader = headers.authorization || '';
+    let authHeader = headers.authorization;
     const jwtToken = authHeader.split(' ')[1];
     return this.parseJwt(jwtToken);
   };
@@ -129,7 +131,7 @@ export class KeycloakController {
       url: url,
       token: token
     });
-    Logger.log(`[Send Verification email] Sent to + ${userId}`);
+    Logger.log(`[Send Verification email] Sent to ${userId}`);
   };
 
   getKeycloakUser = async (userId: String) => {
@@ -151,9 +153,9 @@ export class KeycloakController {
       Logger.log('[Get keycloak user] ERROR Getting user: ' + userId);
       return;
     }
-    if (response && response.status === 204) {
+    if (response && response.status === 200) {
       Logger.log(`[Get keycloak user] Gotten user with id: ${userId}`);
-      return response;
+      return response.data;
     }
     return;
   };

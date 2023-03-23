@@ -17,11 +17,11 @@ import {
 } from '@loopback/rest';
 import axios, {AxiosError, AxiosResponse} from 'axios';
 
-import KeycloakController from './keycloak.controller';
-import FhirController from './fhir.controller';
-import GlensController from './glens.controller';
-import AxiosController from './axios.controller';
-import Logger from './logger.controller';
+import KeycloakController from '../providers/keycloak.provider';
+import FhirController from '../providers/fhir.provider';
+import GlensController from '../providers/glens.provider';
+import AxiosController from '../services/axios.provider';
+import Logger from '../services/logger.provider';
 
 const fs = require('fs');
 
@@ -38,13 +38,6 @@ export class RegistrationController {
   axiosController = new AxiosController();
   glensController = new GlensController();
   fhirController = new FhirController();
-
-  processError = (error: any) => {
-    error = error.toJSON();
-    Logger.log(error.stack);
-    Logger.log(error.message);
-    Logger.log(error.status);
-  };
 
   processAxiosError = (error: AxiosError, response: any) => {
     let statusCode = null;
@@ -124,23 +117,24 @@ export class RegistrationController {
     console.log('\n\n');
     Logger.log('------------------[GET]-------------------------');
     Logger.log('[GET] Get user');
-    let serviceUserToken: any;
+
     let response = {
-      profile: false,
-      glensProfile: null,
+      keycloakProfile: {},
+      glensProfile: {},
       //fhirPatientProfile: null,
     };
+
+    let headers = this.req.headers;
 
     ///////////////////////////
     // Get userID from token //
     ///////////////////////////
-    let requestedUserId;
+    let userId;
     try {
-      let parsedToken = this.keycloakController.getParsedJwtFromHeaders(
-        this.req.headers,
-      );
-      requestedUserId = parsedToken['sub']; // "SUB" field of the JWT token is the userid for which the token is granted
-      if (!requestedUserId) throw new Error('No token sent, or it is invalid');
+      let parsedToken =
+        this.keycloakController.getParsedJwtFromHeaders(headers);
+      userId = this.keycloakController.getUserIdFromParsedToken(parsedToken); // "SUB" field of the JWT token is the userid for which the token is granted
+      if (!userId) throw new Error('No token sent, or it is invalid');
     } catch (error) {
       console.log('Invalid or inexistant token. Sending response...');
       response['message'] =
@@ -149,16 +143,14 @@ export class RegistrationController {
       return;
     }
 
-    // Get service token
+    ///////////////
+    // Get token //
+    ///////////////
     try {
-      serviceUserToken = await this.keycloakController.getToken();
+      await this.keycloakController.getToken();
     } catch (error) {
-      Logger.log(error);
-      response['message'] = 'There was an error contacting with auth server.';
-      this.response.status(500).send({
-        message: 'There was an error contacting with auth server.',
-        error: '',
-      });
+      Logger.log('[Get ServiceUser Token] Error');
+      this.processAxiosError(error, response);
       return this.response;
     }
 
@@ -166,10 +158,10 @@ export class RegistrationController {
     // Get Keycloak profile //
     //////////////////////////
     try {
-      let profileResponse = await this.keycloakController.getKeycloakUser(
-        requestedUserId,
+      let keycloakProfile = await this.keycloakController.getKeycloakUser(
+        userId,
       );
-      response.profile = profileResponse?.data;
+      response.keycloakProfile = keycloakProfile;
     } catch (error) {
       if (error.code === 'ERR_UNESCAPED_CHARACTERS') {
         console.log('ERR_UNESCAPED_CHARACTERS');
@@ -187,12 +179,13 @@ export class RegistrationController {
     ////////////////////////
     try {
       let glensProfileResponse = await this.glensController.getGlensProfile(
-        requestedUserId,
+        userId,
         this.keycloakController.token,
       );
 
-      response.glensProfile = glensProfileResponse.data;
+      response.glensProfile = glensProfileResponse;
     } catch (error) {
+      Logger.log('[Get User] ERROR Getting G-Lens Profile: ' + userId);
       this.response.status(400).send(response);
     }
 
@@ -316,10 +309,8 @@ export class RegistrationController {
     // G-Lens Profile //
     ////////////////////
 
-    let glensProfile = this.glensController.createGlensProfileBody(
-      profile,
-      keycloakUserId,
-    );
+    let glensProfile =
+      this.glensController.createGlensProfileBody(keycloakUserId);
     let glensProfileResponse;
     try {
       glensProfileResponse = await this.glensController.createGlensProfile(
@@ -340,10 +331,8 @@ export class RegistrationController {
     //////////////////
     // FHIR Patient //
     //////////////////
-    let fhirPatientProfile = this.fhirController.buildFhirPatient(
-      profile,
-      keycloakUserId,
-    );
+    let fhirPatientProfile =
+      this.fhirController.buildFhirPatient(keycloakUserId);
     Logger.log(
       `[Create FHIR Patient] Creating fhir patient: ${JSON.stringify(profile)}`,
     );

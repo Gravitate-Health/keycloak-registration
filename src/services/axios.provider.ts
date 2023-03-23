@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 class AxiosController {
-  axiosPost = async ({
+  axiosPost = ({
     data = {},
     url = '',
     token = '',
@@ -13,7 +13,7 @@ class AxiosController {
     if (token) {
       headers['Authorization'] = 'Bearer ' + token;
     }
-    return await axios({
+    return axios({
       method: 'post',
       url: url,
       timeout: 30 * 1000,
@@ -22,14 +22,14 @@ class AxiosController {
     });
   };
 
-  axiosGet = async ({url = '', token = ''} = {}) => {
+  axiosGet = ({url = '', token = ''} = {}) => {
     let headers = {
       'Content-Type': 'application/json',
     };
     if (token) {
       headers['Authorization'] = 'Bearer ' + token;
     }
-    return await axios({
+    return axios({
       method: 'get',
       url: url,
       timeout: 30 * 1000,
@@ -37,14 +37,14 @@ class AxiosController {
     });
   };
 
-  axiosPatch = async ({data = {}, url = '', token = ''} = {}) => {
+  axiosPatch = ({data = {}, url = '', token = ''} = {}) => {
     let headers = {
       'Content-Type': 'application/json',
     };
     if (token) {
       headers['Authorization'] = 'Bearer ' + token;
     }
-    return await axios({
+    return axios({
       method: 'patch',
       url: url,
       timeout: 30 * 1000,
@@ -53,14 +53,14 @@ class AxiosController {
     });
   };
 
-  axiosPut = async ({data = {}, url = '', token = ''} = {}) => {
+  axiosPut = ({data = {}, url = '', token = ''} = {}) => {
     let headers = {
       'Content-Type': 'application/json',
     };
     if (token) {
       headers['Authorization'] = 'Bearer ' + token;
     }
-    return await axios({
+    return axios({
       method: 'put',
       url: url,
       timeout: 30 * 1000,
@@ -69,14 +69,14 @@ class AxiosController {
     });
   };
 
-  axiosDelete = async ({url = '', token = ''} = {}) => {
+  axiosDelete = ({url = '', token = ''} = {}) => {
     let headers = {
       'Content-Type': 'application/json',
     };
     if (token) {
       headers['Authorization'] = 'Bearer ' + token;
     }
-    return await axios({
+    return axios({
       method: 'delete',
       url: url,
       timeout: 30 * 1000,

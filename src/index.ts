@@ -2,28 +2,14 @@ import {ApplicationConfig, StarterApplication} from './application';
 
 export * from './application';
 
-const example = `curl --location --request POST 'http://localhost:3000/users' \
---header 'Content-Type: application/json' \
---data-raw '{
-"username": "strange",
-"firstName": "Stephen",
-"lastName": "strange",
-"enabled":"true",
-"email": "strange@marvel.com",
-"credentials":[{"type":"password","value":"strange","temporary":false}]
-}'`;
-
-
 export async function main(options: ApplicationConfig = {}) {
   const app = new StarterApplication(options);
   await app.boot();
   await app.start();
 
   const url = app.restServer.url;
+  console.log('Gravitate Health: Keycloak Registration services');
   console.log(`Server is running at ${url}`);
-  console.log(`Try ${url}/users`);
-  console.log(`Try an example like this:`);
-  console.log(example);
 
   return app;
 }
