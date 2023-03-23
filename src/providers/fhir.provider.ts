@@ -10,13 +10,8 @@ export class FhirController {
 
   buildFhirPatient = (keycloakUserId: string) => {
     return {
+      id: keycloakUserId,
       resourceType: 'Patient',
-      identifier: [
-        {
-          use: 'usual',
-          value: keycloakUserId,
-        },
-      ],
       active: true,
       name: [
         {
@@ -36,6 +31,20 @@ export class FhirController {
       });
     } catch (error) {
       Logger.log('[Create FHIR Patient] Error');
+      throw new Error(error);
+    }
+  };
+
+  patchFhirPatient = async (patient: any, id: string, token = "") => {
+    try {
+      Logger.log('[Patch FHIR Patient] Patching FHIR Patient...');
+      let url = this.fhirPatientUrl + "/" + id;
+      return await this.axiosController.axiosPatch({
+        data: patient,
+        url: url,
+      });
+    } catch (error) {
+      Logger.log('[Patch FHIR Patient] Error');
       throw new Error(error);
     }
   };
