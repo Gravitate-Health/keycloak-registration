@@ -1,7 +1,7 @@
 import axios from 'axios';
 import AxiosController from '../services/axios.provider';
 import Logger from '../services/logger.provider';
-import qs from 'qs';
+import {stringify} from 'qs';
 
 export class KeycloakController {
   axiosController = new AxiosController();
@@ -18,15 +18,11 @@ export class KeycloakController {
   serviceUserPassword =
     process.env.SERVICE_PASSWORD ?? 'Alumni-diabetic-attentive1';
 
-  keycloakUsersEndpoint =
-    this.keycloakBaseUrl +
-    '/auth/admin/realms/' +
-    this.realm +
-    '/' +
-    this.usersEndpoint;
-
+  keycloakUsersUrl = `${this.keycloakBaseUrl}/auth/admin/realms/${this.realm}/${this.usersEndpoint}`;
+  keycloakUserInfoUrl = `${this.keycloakBaseUrl}/auth/realms/${this.realm}/protocol/openid-connect/userinfo`
+  keycloakTokenUrl = `${this.keycloakBaseUrl}/auth/realms/${this.realm}/protocol/openid-connect/token`
   // Realm data
-  realmData = qs.stringify({
+  realmData = stringify({
     client_id: 'GravitateHealth',
     grant_type: 'password',
     username: this.serviceUserUsername,
@@ -38,7 +34,7 @@ export class KeycloakController {
   };
 
   getUserIdFromParsedToken = (parsedToken: object) => {
-    return parsedToken['sub']
+    return parsedToken['sub'];
   };
 
   getParsedJwtFromHeaders = (headers: any) => {
@@ -48,14 +44,9 @@ export class KeycloakController {
   };
 
   checkJWTisValid = async () => {
-    let url =
-      this.keycloakBaseUrl +
-      '/auth/realms/' +
-      this.realm +
-      '/protocol/openid-connect/userinfo';
     try {
       const isValid = await this.axiosController.axiosGet({
-        url: url,
+        url: this.keycloakUserInfoUrl,
         token: this.token,
       });
       let statusCode = isValid.status;
@@ -72,15 +63,10 @@ export class KeycloakController {
 
   getToken = async (realm = this.realm, realmData = this.realmData) => {
     let tokenResponse: any;
-    let url =
-      this.keycloakBaseUrl +
-      '/auth/realms/' +
-      realm +
-      '/protocol/openid-connect/token';
     try {
       tokenResponse = await this.axiosController.axiosPost({
         data: realmData,
-        url: url,
+        url: this.keycloakTokenUrl,
         contentType: 'application/x-www-form-urlencoded',
       });
     } catch (error) {
@@ -118,18 +104,11 @@ export class KeycloakController {
 
   sendVerificationEmail = async (token: any, userId: any) => {
     let url =
-      this.keycloakBaseUrl +
-      '/auth/admin/realms/' +
-      this.realm +
-      '/' +
-      this.usersEndpoint +
-      '/' +
-      userId +
-      '/execute-actions-email';
+      `${this.keycloakUsersUrl}/${userId}/execute-actions-email`;
     const keycloakVerifyEmail = await this.axiosController.axiosPut({
       data: ['VERIFY_EMAIL'],
       url: url,
-      token: token
+      token: token,
     });
     Logger.log(`[Send Verification email] Sent to ${userId}`);
   };
@@ -138,12 +117,7 @@ export class KeycloakController {
     Logger.log(`[Get Keycloak User] Getting user: ${userId}`);
 
     let response;
-    let url =
-      this.keycloakBaseUrl +
-      '/auth/admin/realms/' +
-      this.realm +
-      '/users/' +
-      userId;
+    let url = `${this.keycloakUsersUrl}/${userId}`;
     try {
       response = await this.axiosController.axiosGet({
         url: url,
@@ -151,7 +125,7 @@ export class KeycloakController {
       });
     } catch (error) {
       Logger.log('[Get keycloak user] ERROR Getting user: ' + userId);
-      return;
+      return error;
     }
     if (response && response.status === 200) {
       Logger.log(`[Get keycloak user] Gotten user with id: ${userId}`);
@@ -160,18 +134,50 @@ export class KeycloakController {
     return;
   };
 
+  getKeycloakUsers = async () => {
+    Logger.log('[Get Keycloak Users] Getting users...');
+
+    let response;
+    try {
+      response = await this.axiosController.axiosGet({
+        url: this.keycloakUsersUrl,
+        token: this.token,
+      });
+    } catch (error) {
+      Logger.log('[Get keycloak Users] ERROR Getting users');
+      throw new Error(error);
+    }
+    if (response && response.status === 200) {
+      Logger.log('[Get keycloak Users] OK');
+      return response.data;
+    }
+    return;
+  };
+
+  getKeycloakUserByEmail = async (email: string) => {
+    let response, users;
+    Logger.log(`[Get Keycloak User By Email] Getting user: ${email}`);
+    try {
+      users = await this.getKeycloakUsers();
+    } catch (error) {
+      Logger.log('[Get keycloak User By Email] ERROR Getting users');
+      throw new Error(error);
+    }
+
+    for (const index in users) {
+      if (users[index]['email'] === email) {
+        // User exists with email providen
+        return users[index];
+      }
+    }
+    return;
+  };
+
   createKeycloakUser = async (body: any) => {
     Logger.log(`[Create Keycloak user] Creating keycloak user: ${body}`);
-    let url =
-      this.keycloakBaseUrl +
-      '/auth/admin/realms/' +
-      this.realm +
-      '/' +
-      this.usersEndpoint;
-
     let createUserResponse = await this.axiosController.axiosPost({
       data: body,
-      url: url,
+      url: this.keycloakUsersUrl,
       token: this.token,
     });
     return createUserResponse;
@@ -185,16 +191,11 @@ export class KeycloakController {
     Logger.log('[Delete Keycloak User] Deleting');
 
     let response;
-    let url =
-      this.keycloakBaseUrl + '/auth/admin/realms/' + realm + '/users/' + userId;
+    let url = `${this.keycloakUsersUrl}/${userId}`
     try {
-      response = await axios({
-        method: 'delete',
+      response = await this.axiosController.axiosDelete({
         url: url,
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
+        token: token,
       });
     } catch (error) {
       Logger.log('[Delete keycloak user] ERROR Deleting user: ' + userId);
@@ -205,6 +206,31 @@ export class KeycloakController {
       return response;
     }
     return;
+  };
+
+  resetPassword = async (email: any) => {
+    let user: any;
+    try {
+      user = await this.getKeycloakUserByEmail(email);
+    } catch (error) {
+      throw new Error(error);
+    }
+    if (user === undefined) {
+      Logger.log(`[Keycloak Reset Password] Email does not exist`);
+      return false;
+    }
+    let userId = user['id'];
+
+    Logger.log(
+      `[Keycloak Reset Password] Sending reset password email to: ${userId}`,
+    );
+    const url = `${this.keycloakUsersUrl}/${userId}/execute-actions-email`;
+    const keycloakResetPassword = await this.axiosController.axiosPut({
+      url: url,
+      data: ['UPDATE_PASSWORD'],
+      token: this.token,
+    });
+    return keycloakResetPassword;
   };
 }
 
