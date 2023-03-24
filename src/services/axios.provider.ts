@@ -37,9 +37,9 @@ class AxiosController {
     });
   };
 
-  axiosPatch = ({data = {}, url = '', token = ''} = {}) => {
+  axiosPatch = ({data = {}, url = '', token = '', contentType = 'application/json'} = {}) => {
     let headers = {
-      'Content-Type': 'application/json',
+      'Content-Type': contentType,
     };
     if (token) {
       headers['Authorization'] = 'Bearer ' + token;

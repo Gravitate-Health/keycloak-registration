@@ -405,9 +405,9 @@ export class RegistrationController {
     }
 
     let glensProfile = patchBody.glensProfile;
-    let fhirPatient = patchBody.fhirPatient;
+    let fhirPatientPatchContent = patchBody.fhirPatient;
 
-    if (glensProfile === undefined && fhirPatient === undefined) {
+    if (glensProfile === undefined && fhirPatientPatchContent === undefined) {
       return this.response.status(400).send({
         message:
           'Provide valid body in the request. At least glensProfile or fhirPatient should be present with valid schemas.',
@@ -443,20 +443,22 @@ export class RegistrationController {
     //////////////////////////
     // PATCH FHIR Patient ////
     //////////////////////////
-    if (fhirPatient) {
+    if (fhirPatientPatchContent) {
       Logger.log(
         `[Patch FHIR Patient] Patching fhir patient: ${JSON.stringify(
-          fhirPatient,
+          fhirPatientPatchContent,
         )}`,
       );
 
       let fhirPatientResponse;
       try {
         fhirPatientResponse = await this.fhirController.patchFhirPatient(
-          fhirPatient,
+          fhirPatientPatchContent,
+          requestedUserId,
           this.keycloakController.token,
         );
         Logger.log('[Patch FHIR Patient] Patched');
+        response['fhirPatientRespose'] = fhirPatientResponse.data
       } catch (error) {
         this.processAxiosError(error, response);
         return this.response;

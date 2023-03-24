@@ -24,8 +24,8 @@ export class FhirController {
   createFhirPatient = async (patient: any, token = "") => {
     try {
       Logger.log('[Create FHIR Patient] Creating FHIR Patient...');
-      let url = this.fhirPatientUrl;
-      return await this.axiosController.axiosPost({
+      let url = `${this.fhirPatientUrl}/${patient.id}`;
+      return await this.axiosController.axiosPut({
         data: patient,
         url: url,
       });
@@ -42,6 +42,7 @@ export class FhirController {
       return await this.axiosController.axiosPatch({
         data: patient,
         url: url,
+        contentType: 'application/fhir+json'
       });
     } catch (error) {
       Logger.log('[Patch FHIR Patient] Error');
