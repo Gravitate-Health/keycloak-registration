@@ -342,10 +342,7 @@ export class RegistrationController {
     /////////////////////////////
 
     try {
-      await this.keycloakController.sendVerificationEmail(
-        this.keycloakController.token,
-        keycloakUserId,
-      );
+      await this.keycloakController.sendVerificationEmail(keycloakUserId);
     } catch (error) {
       await this.keycloakController.deleteKeycloakUser(
         this.keycloakController.token,
@@ -458,7 +455,7 @@ export class RegistrationController {
           this.keycloakController.token,
         );
         Logger.log('[Patch FHIR Patient] Patched');
-        response['fhirPatientRespose'] = fhirPatientResponse.data
+        response['fhirPatientRespose'] = fhirPatientResponse.data;
       } catch (error) {
         this.processAxiosError(error, response);
         return this.response;
