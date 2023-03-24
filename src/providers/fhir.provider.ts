@@ -21,7 +21,7 @@ export class FhirController {
     };
   };
 
-  createFhirPatient = async (patient: any, token = "") => {
+  createFhirPatient = async (patient: any) => {
     try {
       Logger.log('[Create FHIR Patient] Creating FHIR Patient...');
       let url = `${this.fhirPatientUrl}/${patient.id}`;
@@ -35,7 +35,7 @@ export class FhirController {
     }
   };
 
-  patchFhirPatient = async (patient: any, id: string, token = "") => {
+  patchFhirPatient = async (patient: any, id: string) => {
     try {
       Logger.log('[Patch FHIR Patient] Patching FHIR Patient...');
       let url = this.fhirPatientUrl + "/" + id;
@@ -46,6 +46,19 @@ export class FhirController {
       });
     } catch (error) {
       Logger.log('[Patch FHIR Patient] Error');
+      throw new Error(error);
+    }
+  };
+
+  deleteFhirPatient = async (id: string) => {
+    try {
+      Logger.log('[Delete FHIR Patient] Deleting FHIR Patient...');
+      let url = this.fhirPatientUrl + "/" + id;
+      return await this.axiosController.axiosDelete({
+        url: url,
+      });
+    } catch (error) {
+      Logger.log('[Delete FHIR Patient] Error');
       throw new Error(error);
     }
   };

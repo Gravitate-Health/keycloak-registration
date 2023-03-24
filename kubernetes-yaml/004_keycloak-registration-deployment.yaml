@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
         - name: keycloak-registration
-          image: gravitate-registry.cr.de-fra.ionos.com/keycloak-registration
+          image: gravitate-registry.cr.de-fra.ionos.com/keycloak-registration:latest
           imagePullPolicy: Always
           envFrom:
             - configMapRef:

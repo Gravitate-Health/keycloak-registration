@@ -207,9 +207,7 @@ export class KeycloakController {
   };
 
   deleteKeycloakUser = async (
-    token: string,
-    userId: String,
-    realm = this.realm,
+    userId: String
   ) => {
     Logger.log('[Delete Keycloak User] Deleting');
 
@@ -218,11 +216,11 @@ export class KeycloakController {
     try {
       response = await this.axiosController.axiosDelete({
         url: url,
-        token: token,
+        token: this.token,
       });
     } catch (error) {
       Logger.log('[Delete keycloak user] ERROR Deleting user: ' + userId);
-      return;
+      throw new Error(error);
     }
     if (response && response.status === 204) {
       Logger.log(`[Delete keycloak user] Deleted user with id: ${userId}`);

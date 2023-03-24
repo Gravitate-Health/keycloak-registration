@@ -92,7 +92,7 @@ export class RegistrationController {
         .status(500)
         .send(
           this.generateErrorResponse(
-            'Internal Error registering the user.',
+            'Internal Error',
             error.message,
           ),
         );
@@ -165,6 +165,9 @@ export class RegistrationController {
       );
       response.keycloakProfile = keycloakProfile;
     } catch (error) {
+      this.processAxiosError(error, response);
+      return this.response;
+      /*
       if (error.code === 'ERR_UNESCAPED_CHARACTERS') {
         console.log('ERR_UNESCAPED_CHARACTERS');
         response['message'] = 'Unvalid token and unvalid userId';
@@ -174,6 +177,7 @@ export class RegistrationController {
         response['message'] = 'User does not exist';
         this.response.status(404).send(response);
       }
+      */
     }
 
     ////////////////////////
@@ -303,11 +307,7 @@ export class RegistrationController {
     } catch (error) {
       Logger.log('[Create G-Lens Profile] Error');
       this.processAxiosError(error, response);
-      this.keycloakController.deleteKeycloakUser(
-        this.keycloakController.token,
-        keycloakUserId,
-      );
-      this;
+      this.keycloakController.deleteKeycloakUser(keycloakUserId);
       return this.response;
     }
 
@@ -317,21 +317,17 @@ export class RegistrationController {
     let fhirPatientProfile =
       this.fhirController.buildFhirPatient(keycloakUserId);
     Logger.log(
-      `[Create FHIR Patient] Creating fhir patient: ${JSON.stringify(profile)}`,
+      `[Create FHIR Patient] Creating fhir patient: ${JSON.stringify(fhirPatientProfile)}`,
     );
 
     let fhirPatientResponse;
     try {
       fhirPatientResponse = await this.fhirController.createFhirPatient(
         fhirPatientProfile,
-        this.keycloakController.token,
       );
       Logger.log('[Create FHIR Patient] Created');
     } catch (error) {
-      await this.keycloakController.deleteKeycloakUser(
-        this.keycloakController.token,
-        keycloakUserId,
-      );
+      await this.keycloakController.deleteKeycloakUser(keycloakUserId);
       await this.glensController.deleteGlensProfile(keycloakUserId);
       this.processAxiosError(error, response);
       return this.response;
@@ -344,10 +340,7 @@ export class RegistrationController {
     try {
       await this.keycloakController.sendVerificationEmail(keycloakUserId);
     } catch (error) {
-      await this.keycloakController.deleteKeycloakUser(
-        this.keycloakController.token,
-        keycloakUserId,
-      );
+      await this.keycloakController.deleteKeycloakUser(keycloakUserId);
       await this.glensController.deleteGlensProfile(keycloakUserId);
       this.processAxiosError(error, response);
     }
@@ -400,6 +393,7 @@ export class RegistrationController {
         message: 'Provide valid body in the request.',
       });
     }
+    console.log(JSON.stringify(patchBody));
 
     let glensProfile = patchBody.glensProfile;
     let fhirPatientPatchContent = patchBody.fhirPatient;
@@ -452,7 +446,6 @@ export class RegistrationController {
         fhirPatientResponse = await this.fhirController.patchFhirPatient(
           fhirPatientPatchContent,
           requestedUserId,
-          this.keycloakController.token,
         );
         Logger.log('[Patch FHIR Patient] Patched');
         response['fhirPatientRespose'] = fhirPatientResponse.data;
@@ -465,47 +458,54 @@ export class RegistrationController {
     this.response.status(200).send(response);
     return this.response;
   }
-  /* 
   @del('/user/{id}')
   @response(204, {
     description: 'Player DELETE success',
   })
   async deleteById(@param.path.string('id') id: string) {
     Logger.log('\n\n------------------[DELETE]-------------------------');
-    let pandevitaToken: any;
-    try {
-      pandevitaToken = await this.get_token(this.realm, this.realmData);
-    } catch (error) {
-      return this.response;
+    Logger.log(`[DELETE] /user/${id}`);
+
+    let deleted = {};
+
+    let requestedUserId = this.getUserIdFromToken();
+    await this.authenticateService();
+
+    if (requestedUserId != id) {
+      return this.response.status(401).send({
+        message: "You don't have permissions to delete this user.",
+      });
     }
 
     //DELETE the user
-    let userResponse;
+    let deleteUserResponse, deleteGlensProfile, deleteFhirPatient;
     try {
-      userResponse = await axios({
-        method: 'delete',
-        url:
-          this.keycloakBaseUrl +
-          '/auth/admin/realms/' +
-          this.realm +
-          '/' +
-          this.usersEndpoint +
-          '/' +
-          id,
-        headers: {
-          Authorization: 'Bearer ' + pandevitaToken,
-          'Content-Type': 'application/json',
-        },
-      });
+      deleteUserResponse = await this.keycloakController.deleteKeycloakUser(
+        requestedUserId,
+      );
+      deleted['keycloakProfileDeleted'] = true;
+      deleteGlensProfile = await this.glensController.deleteGlensProfile(
+        requestedUserId,
+      );
+      deleted['glensProfileDeleted'] = true;
+      deleteFhirPatient = await this.fhirController.deleteFhirPatient(
+        requestedUserId,
+      );
+      Logger.log(
+        `[Delete FHIR Patient] Deleted patient with id: ${requestedUserId}`,
+      );
+      deleted['fhirPatientDeleted'] = true;
     } catch (error) {
-      Logger.log('Error deleting user');
+      Logger.log('[Delete user] Error deleting user');
       Logger.log(error);
       this.response.status(500).send({
-        created: false,
+        deleted: deleted,
         reason: error,
       });
-
-      return this.response;
     }
-  } */
+
+    return this.response.status(200).send({
+      deleted: deleted,
+    });
+  }
 }
