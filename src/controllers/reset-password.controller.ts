@@ -1,7 +1,7 @@
 import {inject} from '@loopback/core';
 import {post, Request, Response, RestBindings} from '@loopback/rest';
 
-import { AxiosError } from 'axios';
+import {AxiosError} from 'axios';
 import KeycloakController from '../providers/keycloak.provider';
 import Logger from '../services/logger.provider';
 
@@ -12,7 +12,6 @@ export class ResetPasswordController {
   ) {}
 
   keycloakController = new KeycloakController();
-
 
   processAxiosError = (error: AxiosError, response?: any) => {
     let statusCode = null;
@@ -75,7 +74,7 @@ export class ResetPasswordController {
         );
     }
   };
-  
+
   generateErrorResponse = (
     message: any = 'There was an error creating the user.',
     reason: any = 'unknown',
@@ -102,7 +101,7 @@ export class ResetPasswordController {
     Logger.log('------------------[POST]-------------------------');
     Logger.log('[POST] reset-password');
 
-    await this.authenticateService()
+    await this.authenticateService();
 
     const email = this.req.query.email as string;
     if (!email || email == undefined) {
@@ -117,5 +116,39 @@ export class ResetPasswordController {
       Logger.log(JSON.stringify(error));
     }
     return this.response.status(204).send();
+  }
+
+  @post('/verification-email')
+  async sendVerificationEmail() {
+    Logger.log('------------------[POST]-------------------------');
+    Logger.log('[POST] verification-email');
+
+    await this.authenticateService();
+
+    const email = this.req.query.email as string;
+    if (!email || email == undefined) {
+      return this.response.status(400).send('Provide email in query parameter');
+    }
+    let isSent, user;
+    try {
+      user = await this.keycloakController.getKeycloakUserByEmail(email);
+      let userId = user.id;
+      isSent = await this.keycloakController.sendVerificationEmail(userId);
+    } catch (error) {
+      Logger.log('[Verification Email] Error sending verification email');
+      Logger.log(JSON.stringify(error));
+      return this.response.status(500).send({
+        error: 'Internal server error',
+      });
+    }
+    if (isSent) {
+      return this.response.status(200).send({
+        message: 'OK',
+      });
+    } else {
+      return this.response.status(400).send({
+        message: 'This email is already verified',
+      });
+    }
   }
 }

@@ -19,8 +19,8 @@ export class KeycloakController {
     process.env.SERVICE_PASSWORD ?? 'Alumni-diabetic-attentive1';
 
   keycloakUsersUrl = `${this.keycloakBaseUrl}/auth/admin/realms/${this.realm}/${this.usersEndpoint}`;
-  keycloakUserInfoUrl = `${this.keycloakBaseUrl}/auth/realms/${this.realm}/protocol/openid-connect/userinfo`
-  keycloakTokenUrl = `${this.keycloakBaseUrl}/auth/realms/${this.realm}/protocol/openid-connect/token`
+  keycloakUserInfoUrl = `${this.keycloakBaseUrl}/auth/realms/${this.realm}/protocol/openid-connect/userinfo`;
+  keycloakTokenUrl = `${this.keycloakBaseUrl}/auth/realms/${this.realm}/protocol/openid-connect/token`;
   // Realm data
   realmData = stringify({
     client_id: 'GravitateHealth',
@@ -102,15 +102,38 @@ export class KeycloakController {
     };
   };
 
-  sendVerificationEmail = async (token: any, userId: any) => {
-    let url =
-      `${this.keycloakUsersUrl}/${userId}/execute-actions-email`;
+  sendVerificationEmail = async (userId: any) => {
+    let emailIsVerified;
+    try {
+      emailIsVerified = await this.userHasEmailVerified(userId);
+    } catch (error) {
+      Logger.log(`[Send Verification Email] Error sending to: ${userId}`);
+      throw new Error(error);
+    }
+    if (emailIsVerified) {
+      return false;
+    }
+    let url = `${this.keycloakUsersUrl}/${userId}/execute-actions-email`;
     const keycloakVerifyEmail = await this.axiosController.axiosPut({
       data: ['VERIFY_EMAIL'],
       url: url,
-      token: token,
+      token: this.token,
     });
     Logger.log(`[Send Verification email] Sent to ${userId}`);
+    return true;
+  };
+
+  userHasEmailVerified = async (userId: string) => {
+    Logger.log(`[Check User Has Email Verified] Checking user: ${userId}`);
+    let user;
+    try {
+      user = await this.getKeycloakUser(userId);
+    } catch (error) {
+      Logger.log(`[Check User Has Email Verified] Checking user: ${userId}`);
+      throw new Error(error);
+    }
+    Logger.log(`User Has Email Verified: ${user['emailVerified']}`);
+    return user['emailVerified'];
   };
 
   getKeycloakUser = async (userId: String) => {
@@ -125,7 +148,7 @@ export class KeycloakController {
       });
     } catch (error) {
       Logger.log('[Get keycloak user] ERROR Getting user: ' + userId);
-      return error;
+      throw new Error(error);
     }
     if (response && response.status === 200) {
       Logger.log(`[Get keycloak user] Gotten user with id: ${userId}`);
@@ -191,7 +214,7 @@ export class KeycloakController {
     Logger.log('[Delete Keycloak User] Deleting');
 
     let response;
-    let url = `${this.keycloakUsersUrl}/${userId}`
+    let url = `${this.keycloakUsersUrl}/${userId}`;
     try {
       response = await this.axiosController.axiosDelete({
         url: url,
