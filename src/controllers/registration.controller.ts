@@ -15,18 +15,21 @@ import {
   Response,
   RestBindings,
 } from '@loopback/rest';
-import axios, {AxiosError, AxiosResponse} from 'axios';
 
 import KeycloakController from '../providers/keycloak.provider';
 import FhirController from '../providers/fhir.provider';
 import GlensController from '../providers/glens.provider';
-import AxiosController from '../services/axios.provider';
-import Logger from '../services/logger.provider';
-
-const fs = require('fs');
+import Logger from '../services/logger.services';
 
 import {Registration} from '../models';
-const sanitizer = require('sanitizer');
+import {LogLevel} from '../services/types';
+import ResponseError from '../error/ResponseError';
+import {
+  getParsedJwtFromHeaders,
+  getUserIdFromToken,
+  parseJSONBody,
+} from '../services/utils.services';
+import CustomError from '../error/CustomError';
 
 export class RegistrationController {
   constructor(
@@ -34,108 +37,36 @@ export class RegistrationController {
     @inject(RestBindings.Http.RESPONSE) private response: Response,
   ) {}
 
-  keycloakController = new KeycloakController();
-  axiosController = new AxiosController();
-  glensController = new GlensController();
-  fhirController = new FhirController();
+  keycloakBaseUrl =
+    process.env.KEYCLOAK_BASE_PATH ?? 'https://fosps.gravitatehealth.eu';
 
-  processAxiosError = (error: AxiosError, response?: any) => {
-    let statusCode = null;
-    if (error.response) {
-      // The request was made and the server responded with a status code outside of 2xx
-      let errorMessage = error.response.data.errorMessage;
-      let errorData = error.response.data.error;
-      let errorStatusCode = error.response.status;
-      let errorUrl = error.config.url;
-      try {
-        Logger.log(
-          `[Process Axios Error] Error Details: ${error.response.data.error.details}`,
-        );
-      } catch (error) {}
-      if (errorUrl) Logger.log(`[Process Axios Error] Error URL: ${errorUrl}`);
-      if (errorMessage)
-        Logger.log(`[Process Axios Error] Error Message: ${errorMessage}`);
-      if (errorData)
-        Logger.log(
-          `[Process Axios Error] Error data: ${JSON.stringify(errorData)}`,
-        );
-      if (errorStatusCode)
-        Logger.log(
-          `[Process Axios Error] Error status code: ${errorStatusCode}`,
-        );
+  glensProfileUrl =
+    process.env.GLENS_PROFILE_BASE_PATH ??
+    'https://fosps.gravitatehealth.eu/profiles';
 
-      let message;
-      switch (error.response.status) {
-        case 409:
-          message = 'User exists with same email';
-          break;
-        case 404:
-          message = 'Service unavailable';
-          statusCode = 503;
-          break;
-        case 422:
-          message = 'Unprocessable entity. Send correct body in petition';
-          break;
-        case 503:
-          message = 'Service unavailable';
-          break;
-        default:
-          break;
-      }
-      if (!response) response = {};
-      response.message = message;
-      response.reason = errorMessage;
-      this.response.status(statusCode || error.response.status).send(response);
-    } else {
-      Logger.log(JSON.stringify(error));
-      this.response
-        .status(500)
-        .send(
-          this.generateErrorResponse(
-            'Internal Error',
-            error.message,
-          ),
-        );
-    }
+  fhirPatientUrl =
+    process.env.PATIENT_PATH ??
+    'https://fosps.gravitatehealth.eu/ips/api/fhir/Patient';
+
+  keycloakController = new KeycloakController(this.keycloakBaseUrl);
+  glensController = new GlensController(this.glensProfileUrl);
+  fhirController = new FhirController(this.fhirPatientUrl);
+
+  sendErrorResponse = (error: ResponseError) => {
+    console.log(JSON.stringify(error));
+    return this.response.status(error.statusCode || 500).send(error.body);
   };
 
-  generateErrorResponse = (
-    message: any = 'There was an error creating the user.',
-    reason: any = 'unknown',
-  ) => {
-    return {
-      created: false,
-      message: message,
-      reason: reason,
-    };
-  };
-
-  getUserIdFromToken = () => {
-    let userId;
+  getUserIdFromToken = (): string => {
+    let parsedToken, userId;
     try {
-      let parsedToken = this.keycloakController.getParsedJwtFromHeaders(
-        this.req.headers,
-      );
-      userId = this.keycloakController.getUserIdFromParsedToken(parsedToken); // "SUB" field of the JWT token is the userid for which the token is granted
-      if (!userId) throw new Error('No token sent, or it is invalid');
-      return userId;
+      parsedToken = getParsedJwtFromHeaders(this.req.headers);
+      return getUserIdFromToken(parsedToken);
     } catch (error) {
-      console.log('Invalid or inexistant token. Sending response...');
-      let response = {};
-      response['message'] =
-        'Please, send a valid token in authorization header.';
-      this.response.status(400).send(response);
-      return;
-    }
-  };
-
-  authenticateService = async () => {
-    try {
-      await this.keycloakController.getToken();
-    } catch (error) {
-      Logger.log('[Get ServiceUser Token] Error');
-      this.processAxiosError(error);
-      return this.response;
+      this.response.status(400).send({
+        errorMessage: 'Send valid token in headers.',
+      });
+      return '';
     }
   };
 
@@ -144,9 +75,10 @@ export class RegistrationController {
   async findUserById(
     @param.filter(Registration) filter?: Filter<Registration>,
   ): Promise<any> {
-    console.log('\n\n');
-    Logger.log('------------------[GET]-------------------------');
-    Logger.log('[GET] Get user');
+    Logger.log(
+      LogLevel.INFO,
+      '\n\n------------------[GET /user]-------------------------',
+    );
 
     let response = {
       keycloakProfile: {},
@@ -154,7 +86,9 @@ export class RegistrationController {
     };
 
     let userId = this.getUserIdFromToken();
-    await this.authenticateService();
+    if (!userId) {
+      return;
+    }
 
     //////////////////////////
     // Get Keycloak profile //
@@ -163,36 +97,28 @@ export class RegistrationController {
       let keycloakProfile = await this.keycloakController.getKeycloakUser(
         userId,
       );
-      response.keycloakProfile = keycloakProfile;
-    } catch (error) {
-      this.processAxiosError(error, response);
-      return this.response;
-      /*
-      if (error.code === 'ERR_UNESCAPED_CHARACTERS') {
-        console.log('ERR_UNESCAPED_CHARACTERS');
-        response['message'] = 'Unvalid token and unvalid userId';
-        this.response.status(400).send(response);
-      } else if (error.response.status === 404) {
-        console.log('User does not exist in keycloak (404)');
-        response['message'] = 'User does not exist';
-        this.response.status(404).send(response);
+      if (keycloakProfile) {
+        response.keycloakProfile = keycloakProfile;
       }
-      */
+    } catch (error) {
+      this.sendErrorResponse(error);
+      return;
     }
 
     ////////////////////////
     // Get G-lens profile //
     ////////////////////////
     try {
-      let glensProfileResponse = await this.glensController.getGlensProfile(
-        userId,
-        this.keycloakController.token,
-      );
+      let glensProfile = await this.glensController.getGlensProfile(userId);
 
-      response.glensProfile = glensProfileResponse;
+      response.glensProfile = glensProfile;
     } catch (error) {
-      Logger.log('[Get User] ERROR Getting G-Lens Profile: ' + userId);
-      this.response.status(400).send(response);
+      Logger.log(
+        LogLevel.ERROR,
+        '[Get User] ERROR Getting G-Lens Profile: ' + userId,
+      );
+      this.sendErrorResponse(error);
+      return;
     }
 
     this.response.status(200).send(response);
@@ -246,8 +172,10 @@ export class RegistrationController {
     })
     body: Buffer,
   ) {
-    Logger.log('\n\n------------------[POST]-------------------------');
-    Logger.log('[POST] Create user');
+    Logger.log(
+      LogLevel.INFO,
+      '\n\n------------------[POST /user]-------------------------',
+    );
 
     let response = {
       created: false,
@@ -255,40 +183,33 @@ export class RegistrationController {
       fhirPatient: {},
     };
 
-    const rawBody = body.toString('utf8');
-
-    let profile = {};
+    // Sanitize input
+    let profile;
     try {
-      profile = JSON.parse(rawBody);
+      profile = parseJSONBody(body.toString('utf8'));
     } catch (error) {
-      this.response.status(400).send({
-        message: 'Provide valid body in the request.',
-      });
+      this.sendErrorResponse(
+        new CustomError(400, {error: 'Provide valid JSON body'}),
+      );
+      return;
     }
-
-    await this.authenticateService();
 
     /////////////////
     // Create user //
     /////////////////
     let keycloakBody = this.keycloakController.createKeycloakProfile(profile);
-    let createUserResponse: any;
+    let keycloakUserId: string;
     try {
-      createUserResponse = await this.keycloakController.createKeycloakUser(
+      keycloakUserId = await this.keycloakController.createKeycloakUser(
         keycloakBody,
       );
     } catch (error) {
-      Logger.log('[Create Keycloak user] Error');
-      this.processAxiosError(error, response);
+      Logger.log(LogLevel.ERROR, '[Create Keycloak user] Error');
+      this.sendErrorResponse(error);
       return;
     }
-    //console.log(createUserResponse);
-
-    // Get UserId from Keycloak respose//
-    const location = createUserResponse.headers['location'];
-    const splitString = location.split('/');
-    const keycloakUserId = splitString[splitString.length - 1];
     Logger.log(
+      LogLevel.INFO,
       `[Create Keycloak user] Created with user ID: ${keycloakUserId}`,
     );
 
@@ -302,13 +223,12 @@ export class RegistrationController {
     try {
       glensProfileResponse = await this.glensController.createGlensProfile(
         glensProfile,
-        this.keycloakController.token,
       );
     } catch (error) {
-      Logger.log('[Create G-Lens Profile] Error');
-      this.processAxiosError(error, response);
-      this.keycloakController.deleteKeycloakUser(keycloakUserId);
-      return this.response;
+      Logger.log(LogLevel.ERROR, '[Create G-Lens Profile] Error');
+      await this.keycloakController.deleteKeycloakUser(keycloakUserId);
+      this.sendErrorResponse(error);
+      return;
     }
 
     //////////////////
@@ -317,7 +237,10 @@ export class RegistrationController {
     let fhirPatientProfile =
       this.fhirController.buildFhirPatient(keycloakUserId);
     Logger.log(
-      `[Create FHIR Patient] Creating fhir patient: ${JSON.stringify(fhirPatientProfile)}`,
+      LogLevel.INFO,
+      `[Create FHIR Patient] Creating fhir patient: ${JSON.stringify(
+        fhirPatientProfile,
+      )}`,
     );
 
     let fhirPatientResponse;
@@ -325,12 +248,12 @@ export class RegistrationController {
       fhirPatientResponse = await this.fhirController.createFhirPatient(
         fhirPatientProfile,
       );
-      Logger.log('[Create FHIR Patient] Created');
+      Logger.log(LogLevel.INFO, '[Create FHIR Patient] Created');
     } catch (error) {
       await this.keycloakController.deleteKeycloakUser(keycloakUserId);
       await this.glensController.deleteGlensProfile(keycloakUserId);
-      this.processAxiosError(error, response);
-      return this.response;
+      this.sendErrorResponse(error);
+      return;
     }
 
     /////////////////////////////
@@ -342,7 +265,8 @@ export class RegistrationController {
     } catch (error) {
       await this.keycloakController.deleteKeycloakUser(keycloakUserId);
       await this.glensController.deleteGlensProfile(keycloakUserId);
-      this.processAxiosError(error, response);
+      this.sendErrorResponse(error);
+      return;
     }
 
     response.created = true;
@@ -369,13 +293,16 @@ export class RegistrationController {
     id: string,
     body: Buffer,
   ) {
-    Logger.log('\n\n------------------[PATCH]-------------------------');
-    Logger.log(`[PATCH] /user/${id}`);
+    Logger.log(
+      LogLevel.INFO,
+      `\n\n------------------[PATCH /user ${id}]-------------------------`,
+    );
 
     let response = {};
-
     let requestedUserId = this.getUserIdFromToken();
-    await this.authenticateService();
+    if (!requestedUserId) {
+      return;
+    }
 
     if (requestedUserId != id) {
       this.response.status(401).send({
@@ -384,14 +311,14 @@ export class RegistrationController {
     }
 
     // Sanitize input
-    const rawBody = body.toString('utf8');
     let patchBody;
     try {
-      patchBody = JSON.parse(rawBody);
+      patchBody = parseJSONBody(body.toString('utf8'));
     } catch (error) {
-      return this.response.status(400).send({
-        message: 'Provide valid body in the request.',
-      });
+      this.sendErrorResponse(
+        new CustomError(400, {error: 'Provide valid JSON body'}),
+      );
+      return;
     }
     console.log(JSON.stringify(patchBody));
 
@@ -410,23 +337,22 @@ export class RegistrationController {
     //////////////////////////
     if (glensProfile) {
       Logger.log(
+        LogLevel.INFO,
         `[Patch G-Lens Profile] Patching G-Lens profile: ${JSON.stringify(
           glensProfile,
         )}`,
       );
       let glensProfileResponse;
-      Logger.log('Patching g-lens-profile user...');
       try {
         glensProfileResponse = await this.glensController.patchGlensProfile(
           glensProfile,
-          id,
-          this.keycloakController.token,
+          id
         );
-        Logger.log('Patch glens profile OK');
+        Logger.log(LogLevel.INFO, 'Patch glens profile OK');
         response['glensProfile'] = glensProfile;
       } catch (error) {
-        Logger.log('error patching g-lens-profile');
-        this.processAxiosError(error, response);
+        Logger.log(LogLevel.ERROR, 'error patching g-lens-profile');
+        this.sendErrorResponse(error);
         return;
       }
     }
@@ -436,6 +362,7 @@ export class RegistrationController {
     //////////////////////////
     if (fhirPatientPatchContent) {
       Logger.log(
+        LogLevel.INFO,
         `[Patch FHIR Patient] Patching fhir patient: ${JSON.stringify(
           fhirPatientPatchContent,
         )}`,
@@ -447,11 +374,12 @@ export class RegistrationController {
           fhirPatientPatchContent,
           requestedUserId,
         );
-        Logger.log('[Patch FHIR Patient] Patched');
+        Logger.log(LogLevel.INFO, '[Patch FHIR Patient] Patched');
         response['fhirPatientRespose'] = fhirPatientResponse.data;
       } catch (error) {
-        this.processAxiosError(error, response);
-        return this.response;
+        console.log(JSON.stringify(error));
+        this.sendErrorResponse(error);
+        return;
       }
     }
 
@@ -463,14 +391,17 @@ export class RegistrationController {
     description: 'Player DELETE success',
   })
   async deleteById(@param.path.string('id') id: string) {
-    Logger.log('\n\n------------------[DELETE]-------------------------');
-    Logger.log(`[DELETE] /user/${id}`);
+    Logger.log(
+      LogLevel.INFO,
+      `\n\n------------------[DELETE /user/${id}]-------------------------`,
+    );
 
     let deleted = {};
 
     let requestedUserId = this.getUserIdFromToken();
-    await this.authenticateService();
-
+    if (!requestedUserId) {
+      return;
+    }
     if (requestedUserId != id) {
       return this.response.status(401).send({
         message: "You don't have permissions to delete this user.",
@@ -492,16 +423,15 @@ export class RegistrationController {
         requestedUserId,
       );
       Logger.log(
+        LogLevel.INFO,
         `[Delete FHIR Patient] Deleted patient with id: ${requestedUserId}`,
       );
       deleted['fhirPatientDeleted'] = true;
     } catch (error) {
-      Logger.log('[Delete user] Error deleting user');
-      Logger.log(error);
-      this.response.status(500).send({
-        deleted: deleted,
-        reason: error,
-      });
+      Logger.log(LogLevel.ERROR, '[Delete user] Error deleting user');
+      Logger.log(LogLevel.INFO, JSON.stringify(error));
+      this.sendErrorResponse(error);
+      return;
     }
 
     return this.response.status(200).send({

@@ -1,12 +1,16 @@
-import AxiosController from '../services/axios.provider';
-import Logger from '../services/logger.provider';
+import AxiosController from '../services/axios.services';
+import Logger from '../services/logger.services';
+import {LogLevel} from '../services/types';
 
-export class GlensController {
-  axiosController = new AxiosController();
+export class GlensController extends AxiosController {
+  glensProfileUrl: string;
 
-  glensProfileUrl =
-    process.env.GLENS_PROFILE_BASE_PATH ??
-    'https://fosps.gravitatehealth.eu/profiles';
+  constructor(baseUrl: string) {
+    super(baseUrl);
+    this.glensProfileUrl =
+      process.env.GLENS_PROFILE_BASE_PATH ??
+      'https://fosps.gravitatehealth.eu/profiles';
+  }
 
   createGlensProfileBody = (keycloakUserId: string) => {
     return {
@@ -14,79 +18,98 @@ export class GlensController {
     };
   };
 
-  getGlensProfile = async (id: string, token: string) => {
+  getGlensProfile = async (id: string): Promise<any> => {
+    Logger.log(
+      LogLevel.INFO,
+      `[G-Lens Provider][Get Profile] Getting profile with id: ${id}`,
+    );
     let glensProfileUrl = this.glensProfileUrl + '/' + id;
     let response;
     try {
-      response = await this.axiosController.axiosGet({
-        url: glensProfileUrl,
-        token: token,
-      });
+      response = await this.request.get(glensProfileUrl);
     } catch (error) {
-      Logger.log('[Get G-Lens user] ERROR Getting G-Lens Profile: ' + id);
-      return;
+      Logger.log(
+        LogLevel.ERROR,
+        `[G-Lens Provider][Get Profile] ERROR Getting Profile with id: ${id}`,
+      );
+      throw error;
     }
-    
-    if (response && response.status === 200) {
-      Logger.log(`[Get G-Lens user] G-Lens with id: ${id}`);
+    if (response) {
       return response.data;
     }
   };
 
-  createGlensProfile = async (glensProfile: object, token: string) => {
+  createGlensProfile = async (glensProfile: object): Promise<any> => {
     Logger.log(
-      `[Create G-Lens Profile] Creating g-lens profile: ${JSON.stringify(
-        glensProfile,
-      )}`,
+      LogLevel.INFO,
+      `[G-Lens Provider][Create Profile] Creating profile: ${glensProfile}`,
     );
-    let glensProfileResponse = await this.axiosController.axiosPost({
-      data: glensProfile,
-      url: this.glensProfileUrl,
-      token: token,
-    });
-    Logger.log('[Create G-Lens Profile] Created');
-    return glensProfileResponse;
+    let glensProfileResponse;
+    try {
+      glensProfileResponse = await this.request.post(
+        this.glensProfileUrl,
+        glensProfile,
+      );
+    } catch (error) {
+      Logger.log(
+        LogLevel.ERROR,
+        `[G-Lens Provider][Create Profile] Error Creating profile: ${glensProfile}`,
+      );
+      throw error;
+    }
+    return glensProfileResponse.data;
   };
 
-  patchGlensProfile = async (
-    glensProfile: string,
-    id: string,
-    token: string,
-  ) => {
+  patchGlensProfile = async (glensProfile: string, id: string): Promise<boolean> => {
     Logger.log(
-      `[Patch G-Lens Profile] Patching g-lens profile: ${JSON.stringify(
+      LogLevel.INFO,
+      `[G-Lens Provider][Patch Profile] Patching profile: ${JSON.stringify(
         glensProfile,
       )}`,
     );
     let url = this.glensProfileUrl + '/' + id;
-    let glensProfileResponse = await this.axiosController.axiosPatch({
-      data: glensProfile,
-      url: this.glensProfileUrl,
-      token: token,
-    });
-    Logger.log('[Patch G-Lens Profile] Patched');
-    return glensProfileResponse;
+    let glensProfileResponse;
+    try {
+      glensProfileResponse = await this.request.patch(url, glensProfile);
+    } catch (error) {
+      Logger.log(
+        LogLevel.ERROR,
+        `[G-Lens Provider][Patch Profile] Error Patching profile: ${JSON.stringify(
+          glensProfile,
+        )}`,
+      );
+      throw error
+    }
+    if(glensProfileResponse.status === 204) {
+      return true;
+    }
+    return false
   };
 
-  deleteGlensProfile = async (profileId: String) => {
-    Logger.log(`[Delete G-Lens User] Deleting user with id ${profileId}`);
+  deleteGlensProfile = async (profileId: String): Promise<boolean> => {
+    Logger.log(
+      LogLevel.INFO,
+      `[G-Lens Provider][Delete Profiole] Deleting profile with id ${profileId}`,
+    );
     let response;
     let url = this.glensProfileUrl + '/' + profileId;
     try {
-      response = await this.axiosController.axiosDelete({url: url});
+      response = await this.request.delete(url);
     } catch (error) {
       Logger.log(
-        `[Delete G-Lens Profile] ERROR Deleting G-Lens Profile: ${profileId}`,
+        LogLevel.ERROR,
+        `[G-Lens Provider][Delete Profile] ERROR Deleting Profile: ${profileId}`,
       );
-      return;
+      throw error;
     }
     if (response && response.status === 204) {
       Logger.log(
+        LogLevel.INFO,
         `[Delete G-Lens Profile] Deleted G-Lens Profile with id: ${profileId}`,
       );
-      return response;
+      return true;
     }
-    return;
+    return false;
   };
 }
 export default GlensController;

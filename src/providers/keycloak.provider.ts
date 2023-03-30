@@ -1,92 +1,53 @@
-import axios from 'axios';
-import AxiosController from '../services/axios.provider';
-import Logger from '../services/logger.provider';
-import {stringify} from 'qs';
+import AxiosController from '../services/axios.services';
+import Logger from '../services/logger.services';
+import {LogLevel} from '../services/types';
+import {KeycloakUser, NewKeycloakUser} from './types';
 
-export class KeycloakController {
-  axiosController = new AxiosController();
+export class KeycloakController extends AxiosController {
+  keycloakBaseUrl: string;
+  keycloakUsersUrl: string;
+  keycloakUserInfoUrl: string;
+  keycloakTokenUrl: string;
+  usersEndpoint: string;
+  realm: string;
 
-  keycloakBaseUrl =
-    process.env.KEYCLOAK_BASE_PATH ?? 'https://fosps.gravitatehealth.eu';
-  usersEndpoint = 'users';
+  constructor(baseUrl: string) {
+    super(baseUrl);
+    this.realm = process.env.KEYCLOAK_REALM ?? 'GravitateHealth';
+    this.keycloakBaseUrl =
+      process.env.KEYCLOAK_BASE_PATH ?? 'https://fosps.gravitatehealth.eu';
+    this.keycloakUsersUrl = `${this.keycloakBaseUrl}/auth/admin/realms/${this.realm}/users`;
+    this.keycloakUserInfoUrl = `${this.keycloakBaseUrl}/auth/realms/${this.realm}/protocol/openid-connect/userinfo`;
+    this.keycloakTokenUrl = `${this.keycloakBaseUrl}/auth/realms/${this.realm}/protocol/openid-connect/token`;
+  }
 
-  token = '';
-
-  // For users
-  realm = process.env.KEYCLOAK_REALM ?? 'GravitateHealth';
-  serviceUserUsername = process.env.SERVICE_USERNAME ?? 'user-test@gh.com';
-  serviceUserPassword =
-    process.env.SERVICE_PASSWORD ?? 'Alumni-diabetic-attentive1';
-
-  keycloakUsersUrl = `${this.keycloakBaseUrl}/auth/admin/realms/${this.realm}/${this.usersEndpoint}`;
-  keycloakUserInfoUrl = `${this.keycloakBaseUrl}/auth/realms/${this.realm}/protocol/openid-connect/userinfo`;
-  keycloakTokenUrl = `${this.keycloakBaseUrl}/auth/realms/${this.realm}/protocol/openid-connect/token`;
-  // Realm data
-  realmData = stringify({
-    client_id: 'GravitateHealth',
-    grant_type: 'password',
-    username: this.serviceUserUsername,
-    password: this.serviceUserPassword,
-  });
-
-  parseJwt = (token: any) => {
-    return JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-  };
-
-  getUserIdFromParsedToken = (parsedToken: object) => {
-    return parsedToken['sub'];
-  };
-
-  getParsedJwtFromHeaders = (headers: any) => {
-    let authHeader = headers.authorization;
-    const jwtToken = authHeader.split(' ')[1];
-    return this.parseJwt(jwtToken);
-  };
-
-  checkJWTisValid = async () => {
+  checkJWTisValid = async (token: string): Promise<boolean> => {
+    Logger.log(
+      LogLevel.INFO,
+      '[Keycloak controller] [Check JWT is valid] Checking...',
+    );
+    let response;
     try {
-      const isValid = await this.axiosController.axiosGet({
-        url: this.keycloakUserInfoUrl,
-        token: this.token,
+      response = await this.request.get(this.keycloakUserInfoUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
-      let statusCode = isValid.status;
-      if (statusCode < 200 && statusCode > 299) {
-        return false;
-      }
-      return true;
     } catch (error) {
-      Logger.log('[Check JWT is valid] Error');
-      Logger.log(error);
+      Logger.log(
+        LogLevel.ERROR,
+        '[Keycloak controller] [Check JWT is valid] Error',
+      );
       return false;
     }
+    let statusCode = response.status;
+    if (statusCode < 200 && statusCode > 299) {
+      return false;
+    }
+    return true;
   };
 
-  getToken = async (realm = this.realm, realmData = this.realmData) => {
-    let tokenResponse: any;
-    try {
-      tokenResponse = await this.axiosController.axiosPost({
-        data: realmData,
-        url: this.keycloakTokenUrl,
-        contentType: 'application/x-www-form-urlencoded',
-      });
-    } catch (error) {
-      Logger.log(error);
-      return;
-    }
-    if (tokenResponse.status === 200) {
-      Logger.log('[Get ServiceUser Token] OK');
-    } else {
-      Logger.log('[Get ServiceUser Token] ERROR: NOT OK');
-      Logger.log(`[Get ServiceUser Token] ${JSON.stringify(tokenResponse)}`);
-    }
-    let token = tokenResponse.data.access_token;
-    if (!token)
-      throw new Error('[Get ServiceUser Token] Error contacting keycloak');
-    this.token = token;
-    return token;
-  };
-
-  createKeycloakProfile = (profile: any) => {
+  createKeycloakProfile = (profile: any): NewKeycloakUser => {
     return {
       email: profile.email,
       firstName: profile.firstName,
@@ -102,89 +63,104 @@ export class KeycloakController {
     };
   };
 
-  sendVerificationEmail = async (userId: any) => {
+  sendVerificationEmail = async (userId: string): Promise<boolean> => {
+    Logger.log(
+      LogLevel.INFO,
+      `[Keycloak controller][Send Verification Email] Sending to: ${userId}`,
+    );
     let emailIsVerified;
     try {
       emailIsVerified = await this.userHasEmailVerified(userId);
     } catch (error) {
-      Logger.log(`[Send Verification Email] Error sending to: ${userId}`);
-      throw new Error(error);
+      Logger.log(
+        LogLevel.ERROR,
+        `[Keycloak controller][Send Verification Email] Error sending to: ${userId}`,
+      );
+      throw error;
     }
     if (emailIsVerified) {
       return false;
     }
     let url = `${this.keycloakUsersUrl}/${userId}/execute-actions-email`;
-    const keycloakVerifyEmail = await this.axiosController.axiosPut({
-      data: ['VERIFY_EMAIL'],
-      url: url,
-      token: this.token,
-    });
-    Logger.log(`[Send Verification email] Sent to ${userId}`);
+    const keycloakVerifyEmail = await this.request.put(url, ['VERIFY_EMAIL']);
+    Logger.log(
+      LogLevel.INFO,
+      `[Keycloak controller][Send Verification email] Sent to ${userId}`,
+    );
     return true;
   };
 
-  userHasEmailVerified = async (userId: string) => {
-    Logger.log(`[Check User Has Email Verified] Checking user: ${userId}`);
+  userHasEmailVerified = async (userId: string): Promise<boolean> => {
+    Logger.log(
+      LogLevel.INFO,
+      `[Keycloak controller][Check User Has Email Verified] Checking user: ${userId}`,
+    );
     let user;
     try {
-      user = await this.getKeycloakUser(userId);
+      user = (await this.getKeycloakUser(userId)) as KeycloakUser;
     } catch (error) {
-      Logger.log(`[Check User Has Email Verified] Checking user: ${userId}`);
-      throw new Error(error);
+      Logger.log(
+        LogLevel.INFO,
+        `[Keycloak controller][Check User Has Email Verified] Checking user: ${userId}`,
+      );
+      throw error;
     }
-    Logger.log(`User Has Email Verified: ${user['emailVerified']}`);
-    return user['emailVerified'];
+    return user.emailVerified;
   };
 
-  getKeycloakUser = async (userId: String) => {
-    Logger.log(`[Get Keycloak User] Getting user: ${userId}`);
-
-    let response;
-    let url = `${this.keycloakUsersUrl}/${userId}`;
-    try {
-      response = await this.axiosController.axiosGet({
-        url: url,
-        token: this.token,
-      });
-    } catch (error) {
-      Logger.log('[Get keycloak user] ERROR Getting user: ' + userId);
-      throw new Error(error);
-    }
-    if (response && response.status === 200) {
-      Logger.log(`[Get keycloak user] Gotten user with id: ${userId}`);
-      return response.data;
-    }
-    return;
-  };
-
-  getKeycloakUsers = async () => {
-    Logger.log('[Get Keycloak Users] Getting users...');
-
+  getKeycloakUser = async (
+    userId: String,
+  ): Promise<KeycloakUser | undefined> => {
+    Logger.log(
+      LogLevel.INFO,
+      `[Keycloak controller][Get User By ID] Getting user: ${userId}`,
+    );
     let response;
     try {
-      response = await this.axiosController.axiosGet({
-        url: this.keycloakUsersUrl,
-        token: this.token,
-      });
+      response = await this.request.get(`${this.keycloakUsersUrl}/${userId}`);
     } catch (error) {
-      Logger.log('[Get keycloak Users] ERROR Getting users');
-      throw new Error(error);
+      Logger.log(
+        LogLevel.ERROR,
+        '[Keycloak controller][Get User By ID] ERROR Getting user: ' + userId,
+      );
+      throw error;
     }
     if (response && response.status === 200) {
-      Logger.log('[Get keycloak Users] OK');
-      return response.data;
+      return response.data as KeycloakUser;
     }
-    return;
   };
 
-  getKeycloakUserByEmail = async (email: string) => {
-    let response, users;
-    Logger.log(`[Get Keycloak User By Email] Getting user: ${email}`);
+  getKeycloakUsers = async (): Promise<KeycloakUser[] | undefined> => {
+    Logger.log(
+      LogLevel.INFO,
+      '[Keycloak controller][Get Users] Getting users...',
+    );
+
+    let response;
+    try {
+      response = await this.request.get(this.keycloakUsersUrl);
+    } catch (error) {
+      throw error;
+    }
+    if (response && response.status === 200) {
+      return response.data;
+    }
+  };
+
+  getKeycloakUserByEmail = async (email: string): Promise<KeycloakUser | undefined> => {
+    let users;
+    Logger.log(
+      LogLevel.INFO,
+      `[Keycloak controller][Get User By Email] Getting user: ${email}`,
+    );
     try {
       users = await this.getKeycloakUsers();
     } catch (error) {
-      Logger.log('[Get keycloak User By Email] ERROR Getting users');
-      throw new Error(error);
+      Logger.log(
+        LogLevel.ERROR,
+        '[Keycloak controller][Get User By Email] ERROR Getting users',
+      );
+      throw error;
     }
 
     for (const index in users) {
@@ -196,62 +172,79 @@ export class KeycloakController {
     return;
   };
 
-  createKeycloakUser = async (body: any) => {
-    Logger.log(`[Create Keycloak user] Creating keycloak user: ${body}`);
-    let createUserResponse = await this.axiosController.axiosPost({
-      data: body,
-      url: this.keycloakUsersUrl,
-      token: this.token,
-    });
-    return createUserResponse;
+  createKeycloakUser = async (newUser: NewKeycloakUser): Promise<string> => {
+    Logger.log(
+      LogLevel.INFO,
+      `[Keycloak controller][Create user] Creating keycloak user: ${newUser.email}`,
+    );
+    let createUserResponse;
+    try {
+      createUserResponse = await this.request.post(this.keycloakUsersUrl, newUser);
+    } catch (error) {
+      throw error;
+    }
+    const location = createUserResponse.headers['location'];
+    const splitString = location.split('/');
+    return splitString[splitString.length - 1];
   };
 
-  deleteKeycloakUser = async (
-    userId: String
-  ) => {
-    Logger.log('[Delete Keycloak User] Deleting');
+  deleteKeycloakUser = async (userId: String): Promise<boolean> => {
+    Logger.log(LogLevel.INFO, '[Keycloak controller][Delete User] Deleting');
 
     let response;
     let url = `${this.keycloakUsersUrl}/${userId}`;
     try {
-      response = await this.axiosController.axiosDelete({
-        url: url,
-        token: this.token,
-      });
+      response = await this.request.delete(url);
     } catch (error) {
-      Logger.log('[Delete keycloak user] ERROR Deleting user: ' + userId);
-      throw new Error(error);
+      Logger.log(
+        LogLevel.ERROR,
+        '[Keycloak controller][Delete user] ERROR Deleting user: ' + userId,
+      );
+      throw error;
     }
     if (response && response.status === 204) {
-      Logger.log(`[Delete keycloak user] Deleted user with id: ${userId}`);
-      return response;
+      Logger.log(
+        LogLevel.INFO,
+        `[Keycloak controller][Delete user] Deleted user with id: ${userId}`,
+      );
+      return true;
     }
-    return;
+    return false;
   };
 
-  resetPassword = async (email: any) => {
+  resetPassword = async (email: any): Promise<boolean> => {
     let user: any;
     try {
       user = await this.getKeycloakUserByEmail(email);
     } catch (error) {
-      throw new Error(error);
+      Logger.log(
+        LogLevel.ERROR,
+        `[Keycloak controller][Reset Password] error getting user with email: ${email}`,
+      );
+      throw error;
     }
     if (user === undefined) {
-      Logger.log(`[Keycloak Reset Password] Email does not exist`);
+      Logger.log(
+        LogLevel.WARN,
+        `[Keycloak controller][Reset Password] Email does not exist`,
+      );
       return false;
     }
     let userId = user['id'];
 
     Logger.log(
-      `[Keycloak Reset Password] Sending reset password email to: ${userId}`,
+      LogLevel.INFO,
+      `[Keycloak controller][Reset Password] Sending reset password email to: ${userId}`,
     );
     const url = `${this.keycloakUsersUrl}/${userId}/execute-actions-email`;
-    const keycloakResetPassword = await this.axiosController.axiosPut({
-      url: url,
-      data: ['UPDATE_PASSWORD'],
-      token: this.token,
-    });
-    return keycloakResetPassword;
+    try {
+      const keycloakResetPassword = await this.request.put(url, [
+        'UPDATE_PASSWORD',
+      ]);
+      return true;
+    } catch (error) {
+      throw error
+    }
   };
 }
 
