@@ -26,11 +26,11 @@ spec:
         attempts: 0
       match:
         - uri:
-            prefix: /users/api/user
+            prefix: /users/api
         - uri:
-            exact: /users/api/user/
+            exact: /users/api/
       rewrite:
-        uri: "/user"
+        uri: "/"
       route:
         - destination:
             host: keycloak-registration.default.svc.cluster.local
