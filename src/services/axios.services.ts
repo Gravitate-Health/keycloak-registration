@@ -28,9 +28,9 @@ class AxiosController {
     this.axiosInstance = axios.create(this.axiosConfig);
 
     this.serviceUserUsername =
-      process.env.SERVICE_USERNAME ?? 'user-test@gh.com';
+      process.env.SERVICE_USERNAME as string;
     this.serviceUserPassword =
-      process.env.SERVICE_PASSWORD ?? 'Alumni-diabetic-attentive1';
+      process.env.SERVICE_PASSWORD as string;
     this.realm = process.env.KEYCLOAK_REALM ?? 'GravitateHealth';
     this.tokenEndpoint = `${this.baseUrl}/auth/realms/${this.realm}/protocol/openid-connect/token`;
 
