@@ -5,6 +5,6 @@ metadata:
 data:
   KEYCLOAK_BASE_PATH: "http://keycloak:8080"
   GLENS_PROFILE_BASE_PATH: "http://profile:3000/profiles"
-  PATIENT_PATH: "http://fhir-server-ips:8080/fhir/Patient"
+  PATIENT_PATH: "http://fhir-server-ips:8080/ips/api/fhir/Patient"
 
   KEYCLOAK_REALM: "GravitateHealth"
