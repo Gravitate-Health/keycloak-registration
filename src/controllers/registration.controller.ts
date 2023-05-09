@@ -235,7 +235,7 @@ export class RegistrationController {
     // FHIR Patient //
     //////////////////
     let fhirPatientProfile =
-      this.fhirController.buildFhirPatient(keycloakUserId);
+      this.fhirController.buildFhirPatient(keycloakUserId, keycloakBody.firstName, keycloakBody.lastName);
     Logger.log(
       LogLevel.INFO,
       `[Create FHIR Patient] Creating fhir patient: ${JSON.stringify(

@@ -12,7 +12,7 @@ export class FhirController extends AxiosController {
     super(baseUrl);
   }
 
-  buildFhirPatient = (keycloakUserId: string) => {
+  buildFhirPatient = (keycloakUserId: string, givenName: string, familyName: string) => {
     return {
       id: keycloakUserId,
       resourceType: 'Patient',
@@ -20,6 +20,10 @@ export class FhirController extends AxiosController {
       name: [
         {
           use: 'usual',
+          family: familyName,
+          given: [
+            givenName
+          ]
         },
       ],
     };
