@@ -1,7 +1,7 @@
 import AxiosController from '../services/axios.services';
 import Logger from '../services/logger.services';
-import {LogLevel} from '../services/types';
-import {KeycloakUser, NewKeycloakUser} from './types';
+import { LogLevel } from '../services/types';
+import { KeycloakUser, NewKeycloakUser } from './types';
 
 export class KeycloakController extends AxiosController {
   keycloakBaseUrl: string;
@@ -82,12 +82,21 @@ export class KeycloakController extends AxiosController {
       return false;
     }
     let url = `${this.keycloakUsersUrl}/${userId}/execute-actions-email`;
-    const keycloakVerifyEmail = await this.request.put(url, ['VERIFY_EMAIL']);
-    Logger.log(
-      LogLevel.INFO,
-      `[Keycloak controller][Send Verification email] Sent to ${userId}`,
-    );
-    return true;
+
+    try {
+
+
+      const keycloakVerifyEmail = await this.request.put(url, ['VERIFY_EMAIL']);
+      Logger.log(
+        LogLevel.INFO,
+        `[Keycloak controller][Send Verification email] Sent to ${userId}`,
+      );
+      return true;
+    } catch (error) {
+      Logger.log(LogLevel.ERROR, `[Keycloak controller][Send Verification email] Could not send email. Error:`)
+      console.log(JSON.stringify(error));
+      return false
+    }
   };
 
   userHasEmailVerified = async (userId: string): Promise<boolean> => {
