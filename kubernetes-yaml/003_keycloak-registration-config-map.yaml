@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: keycloak-registration-config-map
 data:
-  KEYCLOAK_BASE_PATH: "http://keycloak:8080"
+  KEYCLOAK_BASE_PATH: "https://fosps.gravitatehealth.eu"
   GLENS_PROFILE_BASE_PATH: "http://profile:3000/profiles"
   PATIENT_PATH: "http://fhir-server-ips:8080/ips/api/fhir/Patient"
 

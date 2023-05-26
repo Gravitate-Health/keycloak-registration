@@ -1,7 +1,7 @@
-import axios, {AxiosInstance, AxiosRequestConfig, AxiosResponse} from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import Logger from './logger.services';
-import {stringify} from 'qs';
-import {LogLevel, RetryConfig} from './types';
+import { stringify } from 'qs';
+import { LogLevel, RetryConfig } from './types';
 import ResponseError from '../error/ResponseError';
 
 const globalConfig: RetryConfig = {
@@ -82,10 +82,8 @@ class AxiosController {
   private _handleRequest = (config: AxiosRequestConfig) => {
     Logger.log(
       LogLevel.DEBUG,
-      `[Request interceptor] [Method: ${config.method}] [URL: ${
-        config.url
-      }] [Content-Type: ${config.headers!['Content-Type']}] [DATA: ${
-        config.data
+      `[Request interceptor] [Method: ${config.method}] [URL: ${config.url
+      }] [Content-Type: ${config.headers!['Content-Type']}] [DATA: ${config.data
       }]`,
     );
     config.headers!.Authorization = `Bearer ${this.token}`;
@@ -161,7 +159,7 @@ class AxiosController {
         errorMessage = error.response.data.errorMessage;
         errorData = error.response.data.error;
         errorDetails = error.response.data.error.details;
-      } catch (error) {}
+      } catch (error) { }
       let errorHeaders = error.request.headers;
       Logger.log(
         LogLevel.ERROR,
@@ -202,6 +200,18 @@ class AxiosController {
           errorStatusCode = 500;
           break;
       }
+
+      if (errorMessage) {
+        switch (errorMessage) {
+          case "Password policy not met":
+            error.response!.data.error = "Password policy not met";
+            break;
+
+          default:
+            break;
+        }
+      }
+
       error.response.status = errorStatusCode
       throw new ResponseError(error);
     } else if (error.request) {
