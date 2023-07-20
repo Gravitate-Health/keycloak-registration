@@ -14,7 +14,6 @@ export class FhirController extends AxiosController {
 
   buildFhirPatient = (keycloakUserId: string, givenName: string, familyName: string) => {
     return {
-      id: keycloakUserId,
       resourceType: 'Patient',
       active: true,
       name: [
@@ -26,18 +25,24 @@ export class FhirController extends AxiosController {
           ]
         },
       ],
+      identifier: [
+        {
+          "system": "fosps.gravitatehealth.eu",
+          "value": keycloakUserId
+        }
+      ]
     };
   };
 
   createFhirPatient = async (patient: any): Promise<any> => {
     Logger.log(
       LogLevel.INFO,
-      `[FHIR Provider][Create Patient] Creating FHIR Patient with id: ${patient.id}`,
+      `[FHIR Provider][Create Patient] Creating FHIR Patient with identifier: ${JSON.stringify(patient.identifier[0])}`,
     );
     let createPatientResponse;
     try {
-      let url = `${this.fhirPatientUrl}/${patient.id}`;
-      createPatientResponse = await this.request.put(url, patient);
+      let url = `${this.fhirPatientUrl}`;
+      createPatientResponse = await this.request.post(url, patient);
     } catch (error) {
       Logger.log(LogLevel.ERROR, '[FHIR Provider][Create Patient] Error');
       throw new Error(error);
