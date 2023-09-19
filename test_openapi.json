@@ -1,0 +1,323 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "gravitate-health-keycloak-registration",
+    "version": "0.0.1",
+    "description": "Gravitate-Health Keycloak registration",
+    "contact": {}
+  },
+  "paths": {
+    "/reset-password": {
+      "post": {
+        "x-controller-name": "ResetPasswordController",
+        "x-operation-name": "resetPassword",
+        "tags": [
+          "ResetPasswordController"
+        ],
+        "responses": {
+          "200": {
+            "description": "Return value of ResetPasswordController.resetPassword"
+          }
+        },
+        "operationId": "ResetPasswordController.resetPassword"
+      }
+    },
+    "/user/{id}": {
+      "patch": {
+        "x-controller-name": "RegistrationController",
+        "x-operation-name": "replaceById",
+        "tags": [
+          "RegistrationController"
+        ],
+        "responses": {
+          "200": {
+            "description": "Return value of RegistrationController.replaceById"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "x-parser": "raw",
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "description": "Keycloak user PUT",
+          "required": true,
+          "x-parameter-index": 1
+        },
+        "operationId": "RegistrationController.replaceById"
+      },
+      "delete": {
+        "x-controller-name": "RegistrationController",
+        "x-operation-name": "deleteById",
+        "tags": [
+          "RegistrationController"
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Player DELETE success"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "operationId": "RegistrationController.deleteById"
+      }
+    },
+    "/user": {
+      "post": {
+        "x-controller-name": "RegistrationController",
+        "x-operation-name": "createUser",
+        "tags": [
+          "RegistrationController"
+        ],
+        "responses": {
+          "200": {
+            "description": "Return value of RegistrationController.createUser"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "x-parser": "raw",
+              "schema": {
+                "$ref": "#/components/schemas/Registration"
+              }
+            }
+          },
+          "description": "Keycloak user registration",
+          "required": true
+        },
+        "operationId": "RegistrationController.createUser"
+      },
+      "get": {
+        "x-controller-name": "RegistrationController",
+        "x-operation-name": "findUserById",
+        "tags": [
+          "RegistrationController"
+        ],
+        "responses": {},
+        "parameters": [
+          {
+            "name": "filter",
+            "in": "query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Registration.Filter"
+                }
+              }
+            }
+          }
+        ],
+        "operationId": "RegistrationController.findUserById"
+      }
+    },
+    "/verification-email": {
+      "post": {
+        "x-controller-name": "ResetPasswordController",
+        "x-operation-name": "sendVerificationEmail",
+        "tags": [
+          "ResetPasswordController"
+        ],
+        "responses": {
+          "200": {
+            "description": "Return value of ResetPasswordController.sendVerificationEmail"
+          }
+        },
+        "operationId": "ResetPasswordController.sendVerificationEmail"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "Buffer": {},
+      "Registration": {
+        "type": "object",
+        "title": "Registration",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "object",
+            "properties": {
+              "country": {
+                "type": "string"
+              }
+            }
+          },
+          "credentials": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              },
+              "temporary": {
+                "type": "boolean"
+              }
+            }
+          },
+          "headers": {
+            "type": "object",
+            "properties": {
+              "Content-Type": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "Registration.Filter": {
+        "type": "object",
+        "title": "Registration.Filter",
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 100
+          },
+          "skip": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "order": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "where": {
+            "title": "Registration.WhereFilter",
+            "type": "object",
+            "additionalProperties": true
+          },
+          "fields": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "firstName": {
+                    "type": "boolean"
+                  },
+                  "lastName": {
+                    "type": "boolean"
+                  },
+                  "email": {
+                    "type": "boolean"
+                  },
+                  "password": {
+                    "type": "boolean"
+                  },
+                  "birth": {
+                    "type": "boolean"
+                  },
+                  "sex": {
+                    "type": "boolean"
+                  },
+                  "pregnancyStatus": {
+                    "type": "boolean"
+                  },
+                  "breastFeeding": {
+                    "type": "boolean"
+                  },
+                  "intolerances": {
+                    "type": "boolean"
+                  },
+                  "allergies": {
+                    "type": "boolean"
+                  },
+                  "diagnoses": {
+                    "type": "boolean"
+                  },
+                  "medicines": {
+                    "type": "boolean"
+                  },
+                  "howToMedication": {
+                    "type": "boolean"
+                  },
+                  "whyTakeMedication": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": true
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "example": "firstName"
+                },
+                "uniqueItems": true
+              }
+            ],
+            "title": "Registration.Fields"
+          }
+        },
+        "additionalProperties": false,
+        "x-typescript-type": "@loopback/repository#Filter<Registration>"
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 {
-  "name": "pandevita-keycloak-self-registration",
+  "name": "gravitate-health-keycloak-registration",
   "version": "0.0.1",
-  "description": "PandeVITA Keycloak self registration",
+  "description": "Gravitate-Health Keycloak registration",
   "keywords": [
     "loopback-application",
     "loopback"

@@ -179,7 +179,6 @@ export class RegistrationController {
 
     let response = {
       created: false,
-      glensProfile: {},
       fhirPatient: {},
     };
 
@@ -217,19 +216,19 @@ export class RegistrationController {
     // G-Lens Profile //
     ////////////////////
 
-    let glensProfile =
-      this.glensController.createGlensProfileBody(keycloakUserId);
-    let glensProfileResponse;
-    try {
-      glensProfileResponse = await this.glensController.createGlensProfile(
-        glensProfile,
-      );
-    } catch (error) {
-      Logger.log(LogLevel.ERROR, '[Create G-Lens Profile] Error');
-      await this.keycloakController.deleteKeycloakUser(keycloakUserId);
-      this.sendErrorResponse(error);
-      return;
-    }
+    //let glensProfile =
+    //  this.glensController.createGlensProfileBody(keycloakUserId);
+    //let glensProfileResponse;
+    //try {
+    //  glensProfileResponse = await this.glensController.createGlensProfile(
+    //    glensProfile,
+    //  );
+    //} catch (error) {
+    //  Logger.log(LogLevel.ERROR, '[Create G-Lens Profile] Error');
+    //  await this.keycloakController.deleteKeycloakUser(keycloakUserId);
+    //  this.sendErrorResponse(error);
+    //  return;
+    //}
 
     //////////////////
     // FHIR Patient //
@@ -251,7 +250,7 @@ export class RegistrationController {
       Logger.log(LogLevel.INFO, '[Create FHIR Patient] Created');
     } catch (error) {
       await this.keycloakController.deleteKeycloakUser(keycloakUserId);
-      await this.glensController.deleteGlensProfile(keycloakUserId);
+      //await this.glensController.deleteGlensProfile(keycloakUserId);
       this.sendErrorResponse(error);
       return;
     }
@@ -264,14 +263,14 @@ export class RegistrationController {
       await this.keycloakController.sendVerificationEmail(keycloakUserId);
     } catch (error) {
       await this.keycloakController.deleteKeycloakUser(keycloakUserId);
-      await this.glensController.deleteGlensProfile(keycloakUserId);
+      //await this.glensController.deleteGlensProfile(keycloakUserId);
       this.sendErrorResponse(error);
       return;
     }
 
     response.created = true;
     response.fhirPatient = fhirPatientProfile;
-    response.glensProfile = glensProfile;
+    //response.glensProfile = glensProfile;
 
     return this.response.status(201).send(response);
   }
