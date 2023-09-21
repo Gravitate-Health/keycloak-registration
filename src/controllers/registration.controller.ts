@@ -108,7 +108,7 @@ export class RegistrationController {
     ////////////////////////
     // Get G-lens profile //
     ////////////////////////
-    try {
+    /* try {
       let glensProfile = await this.glensController.getGlensProfile(userId);
 
       response.glensProfile = glensProfile;
@@ -119,7 +119,7 @@ export class RegistrationController {
       );
       this.sendErrorResponse(error);
       return;
-    }
+    } */
 
     this.response.status(200).send(response);
   }
@@ -334,7 +334,7 @@ export class RegistrationController {
     //////////////////////////
     // PATCH G-Lens Profile //
     //////////////////////////
-    if (glensProfile) {
+    /* if (glensProfile) {
       Logger.log(
         LogLevel.INFO,
         `[Patch G-Lens Profile] Patching G-Lens profile: ${JSON.stringify(
@@ -354,7 +354,7 @@ export class RegistrationController {
         this.sendErrorResponse(error);
         return;
       }
-    }
+    } */
 
     //////////////////////////
     // PATCH FHIR Patient ////
