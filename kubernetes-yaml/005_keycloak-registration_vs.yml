@@ -26,9 +26,9 @@ spec:
         attempts: 0
       match:
         - uri:
-            prefix: /users/api
+            prefix: /users/api/
         - uri:
-            exact: /users/api/
+            exact: /users/api
       rewrite:
         uri: "/"
       route:

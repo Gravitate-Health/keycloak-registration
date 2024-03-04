@@ -1,0 +1,25 @@
+# Require valid JWT for apps that have the label "istioRequireAuthentication: true"
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: keycloak-registration-authpolicy
+spec:
+  selector:
+    matchLabels:
+      app: keycloak-registration
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            requestPrincipals: ["*"]
+      to:
+        - operation:
+            methods: ["GET", "PATCH", "PUT", "DELETE"]
+            paths: ["/user", "/user/*"]
+
+    ## No authentication required
+    - to:
+        - operation:
+            methods: ["POST"]
+            paths: ["/user", "/reset-password", "/verification-email"]
