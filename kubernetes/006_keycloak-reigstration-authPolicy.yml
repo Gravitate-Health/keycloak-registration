@@ -15,8 +15,18 @@ spec:
             requestPrincipals: ["*"]
       to:
         - operation:
-            methods: ["GET", "PATCH", "PUT", "DELETE"]
-            paths: ["/user", "/user/*"]
+            methods: ["GET"]
+            paths: ["/user"]
+    - from:
+        - source:
+            requestPrincipals: ["*"]
+      to:
+        - operation:
+            methods: ["PATCH", "PUT", "DELETE"]
+            paths: ["/user/*"]
+      when:
+        - key: request.auth.claims[sub]
+          values: ["$request.path.sub"]
 
     ## No authentication required
     - to:
