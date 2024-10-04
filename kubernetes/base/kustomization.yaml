@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - 001_keycloak-registration-secrets.yaml
+  - 002_keycloak-registration-service.yaml
+  - 003_keycloak-registration-config-map.yaml
+  - 004_keycloak-registration-deployment.yaml
+  - 005_keycloak-registration_vs.yaml
+  - 006_keycloak-reigstration-authPolicy.yaml
