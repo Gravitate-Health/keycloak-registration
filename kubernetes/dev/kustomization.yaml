@@ -4,5 +4,6 @@ resources:
 - ../base
 patches:
 
+- path: 004_keycloak-registration-deployment.yaml
 - path: 003_keycloak-registration-config-map.yaml
 

@@ -17,37 +17,12 @@ kind: Deployment
 metadata:
   name: keycloak-registration
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: keycloak-registration
   template:
-    metadata:
-      labels:
-        app: keycloak-registration
-        istioRequireAuthentication: "true"
     spec:
       containers:
         - name: keycloak-registration
-          image: gravitate-registry.cr.de-fra.ionos.com/keycloak-registration:v0.5.0
-          imagePullPolicy: Always
-          envFrom:
-            - configMapRef:
-                name: keycloak-registration-config-map
-          env:
-            - name: SERVICE_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: keycloak-registration-secret
-                  key: username
-            - name: SERVICE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: keycloak-registration-secret
-                  key: password
-          ports:
-            - containerPort: 3000
-              protocol: TCP
+          image: gravitate-registry.cr.de-fra.ionos.com/keycloak-registration:latest
           resources: {}
-      restartPolicy: Always
-status: {}
