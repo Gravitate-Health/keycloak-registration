@@ -1,0 +1,35 @@
+{{- if and (eq .Values.networking.type "ingress") (.Values.networking.ingress.enabled) }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "keycloak-registration.fullname" . }}
+  labels:
+    {{- include "keycloak-registration.labels" . | nindent 4 }}
+  {{- with .Values.networking.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.networking.ingress.className }}
+  ingressClassName: {{ .Values.networking.ingress.className }}
+  {{- end }}
+  rules:
+    {{- range .Values.networking.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "keycloak-registration.fullname" $ }}
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+    {{- end }}
+  {{- with .Values.networking.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

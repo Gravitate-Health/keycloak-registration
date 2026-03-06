@@ -1,0 +1,74 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/gravitate-health/keycloak-registration
+  tag: v0.5.0
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+
+containerPort: 3000
+
+podLabels:
+  istioRequireAuthentication: "true"
+
+resources: {}
+
+config:
+  KEYCLOAK_BASE_PATH: "https://fosps.gravitatehealth.eu"
+  GLENS_PROFILE_BASE_PATH: "http://profile:3000/profiles"
+  PATIENT_PATH: "http://fhir-server-ips:8080/ips/api/fhir/Patient"
+  KEYCLOAK_REALM: "GravitateHealth"
+
+secret:
+  username: ""
+  password: ""
+
+networking:
+  # Valid values: istio | ingress | none
+  # Default is "istio" because existing manifests include Istio resources.
+  type: istio
+
+  istio:
+    virtualService:
+      hosts:
+        - "*"
+      gateways:
+        - gh-gateway
+      prefixMatches:
+        - /users/api/
+      exactMatches:
+        - /users/api
+      rewriteUri: /
+      retries:
+        attempts: 0
+    gateway:
+      create: false
+      name: gh-gateway
+      hosts:
+        - "*"
+      selector:
+        istio: ingressgateway
+      port:
+        number: 80
+        name: http
+        protocol: HTTP
+    authorizationPolicy:
+      enabled: true
+
+  ingress:
+    enabled: true
+    className: ""
+    annotations: {}
+    hosts:
+      - host: ""
+        paths:
+          - path: /users/api
+            pathType: Prefix
+    tls: []

@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "keycloak-registration.fullname" . }}
+  labels:
+    {{- include "keycloak-registration.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "keycloak-registration.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "keycloak-registration.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+        - name: {{ include "keycloak-registration.name" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "keycloak-registration.fullname" . }}-config
+          env:
+            - name: SERVICE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "keycloak-registration.fullname" . }}-secret
+                  key: username
+            - name: SERVICE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "keycloak-registration.fullname" . }}-secret
+                  key: password
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

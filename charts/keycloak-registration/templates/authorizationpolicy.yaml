@@ -1,0 +1,35 @@
+{{- if and (eq .Values.networking.type "istio") (.Values.networking.istio.authorizationPolicy.enabled) }}
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "keycloak-registration.fullname" . }}-authpolicy
+  labels:
+    {{- include "keycloak-registration.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "keycloak-registration.selectorLabels" . | nindent 6 }}
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            requestPrincipals: ["*"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/user"]
+    - from:
+        - source:
+            requestPrincipals: ["*"]
+      to:
+        - operation:
+            methods: ["PATCH", "PUT", "DELETE"]
+            paths: ["/user/*"]
+      when:
+        - key: request.auth.claims[sub]
+          values: ["$request.path.sub"]
+    - to:
+        - operation:
+            methods: ["POST"]
+            paths: ["/user", "/reset-password", "/verification-email"]
+{{- end }}

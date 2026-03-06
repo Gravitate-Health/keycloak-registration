@@ -1,0 +1,18 @@
+{{- if and (eq .Values.networking.type "istio") (.Values.networking.istio.gateway.create) }}
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: {{ .Values.networking.istio.gateway.name }}
+  labels:
+    {{- include "keycloak-registration.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- toYaml .Values.networking.istio.gateway.selector | nindent 4 }}
+  servers:
+    - port:
+        number: {{ .Values.networking.istio.gateway.port.number }}
+        name: {{ .Values.networking.istio.gateway.port.name }}
+        protocol: {{ .Values.networking.istio.gateway.port.protocol }}
+      hosts:
+        {{- toYaml .Values.networking.istio.gateway.hosts | nindent 8 }}
+{{- end }}

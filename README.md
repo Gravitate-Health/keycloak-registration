@@ -32,6 +32,25 @@ To run the image:
 docker run IMAGE_NAME:IMAGE_TAG
 ```
 
+## Deployment
+
+### Deploy via Helm (OCI)
+
+```bash
+# Login to registry (if private)
+helm registry login ghcr.io
+
+# Deploy directly from the registry
+helm install my-release oci://ghcr.io/<your-org>/charts/keycloak-registration --version <version>
+```
+
+### Local Development
+
+```bash
+helm lint charts/keycloak-registration
+helm template my-release charts/keycloak-registration
+```
+
 ## Authors and history
 
 - Guillermo Mejías ([gmejias@lst.tfo.upm.es](https://gitlab.lst.tfo.upm.es/gmejias))
