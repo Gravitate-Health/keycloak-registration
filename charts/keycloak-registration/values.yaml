@@ -48,17 +48,6 @@ networking:
       rewriteUri: /
       retries:
         attempts: 0
-    gateway:
-      create: false
-      name: gh-gateway
-      hosts:
-        - "*"
-      selector:
-        istio: ingressgateway
-      port:
-        number: 80
-        name: http
-        protocol: HTTP
     authorizationPolicy:
       enabled: true
 
