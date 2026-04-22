@@ -1,4 +1,4 @@
-# PandeVITA Keycloak Self registration
+# Gravitate-Health Keycloak Self registration
 
 This application is generated using [LoopBack 4 CLI](https://loopback.io/doc/en/lb4/Command-line-interface.html).
 
@@ -8,10 +8,10 @@ The following environment variables must be set (locally or for Docker run):
 
 | Environment Variable Name 	| Default Value                                	|
 |---------------------------	|----------------------------------------------	|
-| KEYCLOAK_BASE_PATH        	| https://keycloak.pandevita.d.lst.tfo.upm.es/ 	|
-| PANDEVITA_REALM           	| pandevita                                    	|
-| PANDEVITA_REALM_USER      	|                                              	|
-| PANDEVITA_REALM_PASS      	|                                              	|
+| KEYCLOAK_BASE_PATH        	| https://fosps.gravitatehealth.eu             	|
+| KEYCLOAK_REALM            	| GravitateHealth                              	|
+| SERVICE_USERNAME          	|                                              	|
+| SERVICE_PASSWORD          	|                                              	|
 
 ## Run locally
 

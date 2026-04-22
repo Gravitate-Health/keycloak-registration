@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.1",
   "info": {
-    "title": "pandevita-keycloak-self-registration",
+    "title": "gravitate-health-keycloak-registration",
     "version": "0.0.1",
-    "description": "PandeVITA Keycloak self registration",
+    "description": "Gravitate-Health Keycloak self registration",
     "contact": {}
   },
   "paths": {
@@ -23,7 +23,7 @@
                 "properties": {
                   "client_id": {
                     "type": "string",
-                    "default": "pandevita-dev"
+                    "default": "GravitateHealth"
                   },
                   "grant_type": {
                     "type": "string",
@@ -238,7 +238,7 @@
   },
   "servers": [
     {
-      "url": "https://gateway.pandevita.d.lst.tfo.upm.es"
+      "url": "https://fosps.gravitatehealth.eu"
     }
   ],
   "security": [
